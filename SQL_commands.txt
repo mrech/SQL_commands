@@ -1,0 +1,70 @@
+########## ADVANCED SQL COMMANDS ##########
+- EXTRACT: a sub-component of a data type colum
+    SELECT EXTRACT({YEAR|MONTH|DAY|WEEK|QUARTER} FROM date_col)
+    FROM table
+- AGE: return the current age of a timestamp type colum
+    SELECT AGE(data_col)
+    FROM table
+- TO_CHAR: covert data type colum to a specified text formatting
+    SELECT TO_CHAR(data_col, 'dd-mm-yyyy')
+    FROM table
+
+
+########## CONDITIONAL EXPRESSIONS ##########
+- CASE: correspond to the IF/ELSE statements
+    SELECT col_condition
+    CASE 
+        WHEN (condition_1) THAN result_1
+        WHEN (condition_2) THAN result_2
+        ...
+        ELSE other_result
+    END AS col_name
+    FROM table
+    
+    :: CASE expression variant: evaluate the single value for equality
+    SELECT
+    SUM(CASE {expression|col_name}
+            WHEN n THAN 1
+            ELSE 0
+        END) AS col_name
+    FROM table
+- COALESCE: replace NULL with the desired value. 
+    SELECT (col_1 - COALESCE(col_2,0))
+    FROM table
+- CAST: convert from one data type into another
+    SELECT CAST('5' AS INTEGER)
+    FROM table
+- NULLIF: NULLIF(arg_1, arg_2) return NULL if arg_1 = arg_2 otherwise arg_1
+NB.: useful to return NULL if the denominator is equal to 0 in a division
+    SELECT (col_1 / NULLIF(col_2, 0)) AS some_ratio
+    FROM table
+
+########## PROCEDURES ##########
+- VIEW: is a database object (virtual table - does not store data pysically only the query)
+It a combination of tables and conditions used quite often.
++ You can also also alter and update existing views
+    
+    :: to create a view ...
+    CREATE VIEW view_name AS
+    --- the query ---
+    SELECT columns
+    FROM table
+    ...
+
+    :: to call it afterwards ...
+    SELECT *
+    FROM view_name
+
+    :: to modify it ...
+    CREATE OR REPLACE VIEW view_name AS
+    --- the new query ---
+    SELECT columns
+    FROM table
+    ...
+
+    :: to remove a view ...
+    DROP VIEW view_name
+    DROP VIEW IF EXISTS view_name
+
+    :: rename the view ...
+    ALTER VIEW view_name RENAME TO new_view_name
