@@ -39,6 +39,7 @@ NB.: useful to return NULL if the denominator is equal to 0 in a division
     SELECT (col_1 / NULLIF(col_2, 0)) AS some_ratio
     FROM table
 
+
 ########## PROCEDURES ##########
 - VIEW: is a database object (virtual table - does not store data pysically only the query)
 It a combination of tables and conditions used quite often.
@@ -68,3 +69,86 @@ It a combination of tables and conditions used quite often.
 
     :: rename the view ...
     ALTER VIEW view_name RENAME TO new_view_name
+
+
+########## WINDOW FUNCTIONS ##########
+Window functions allow you to include aggregate calculations in your
+queries, WITHOUT otherwise changing the output in any way.
+
+The aggregate calculation is simple tacked on to the query as and
+additional column.
+
+----------------------------------------
+AGGREGATE FUN() **OVER()**
+----------------------------------------
+--YTD Sales Via Aggregate Query:
+
+SELECT
+
+      [Total YTD Sales] = SUM(SalesYTD)
+      ,[Max YTD Sales] = MAX(SalesYTD)
+
+FROM AdventureWorks2019.Sales.SalesPerson
+
+
+
+--YTD Sales With OVER:
+
+SELECT BusinessEntityID
+      ,TerritoryID
+      ,SalesQuota
+      ,Bonus
+      ,CommissionPct
+      ,SalesYTD
+	  ,SalesLastYear
+      ,[Total YTD Sales] = SUM(SalesYTD) OVER()
+      ,[Max YTD Sales] = MAX(SalesYTD) OVER()
+      ,[% of Best Performer] = SalesYTD/MAX(SalesYTD) OVER()
+
+FROM AdventureWorks2019.Sales.SalesPerson
+
+
+----------------------------------------
+OVER(**PARTITION BY**) 
+----------------------------------------
+It is possible to group these calculations, just like we can with 
+aggregate queries, using PARTITION.
+
+PARTITION BY allows us to compute aggregate totals for groups
+within our data, while still retaining row-level detail
+
+PARTITION BY assign each row of your query output to a group,
+without collapsing your data into fewer rows as with GROUP BY
+
+--Sum of line totals, grouped by ProductID AND OrderQty, in an aggregate query
+
+SELECT
+	ProductID,
+	OrderQty,
+	LineTotal = SUM(LineTotal)
+
+FROM AdventureWorks2019.Sales.SalesOrderDetail
+
+GROUP BY
+	ProductID,
+	OrderQty
+
+ORDER BY 1,2 DESC
+
+
+
+--Sum of line totals via OVER with PARTITION BY
+
+SELECT
+	ProductID,
+	SalesOrderID,
+	SalesOrderDetailID,
+	OrderQty,
+	UnitPrice,
+	UnitPriceDiscount,
+	LineTotal,
+	ProductIDLineTotal = SUM(LineTotal) OVER(PARTITION BY ProductID, OrderQty)
+
+FROM AdventureWorks2019.Sales.SalesOrderDetail
+
+ORDER BY ProductID, OrderQty DESC
