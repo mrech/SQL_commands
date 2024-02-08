@@ -152,3 +152,44 @@ SELECT
 FROM AdventureWorks2019.Sales.SalesOrderDetail
 
 ORDER BY ProductID, OrderQty DESC
+
+
+----------------------------------------
+**ROW_NUMBER()** OVER(PARTITION BY ORDER BY)
+----------------------------------------
+ROW_NUMBER() give us the ability to rank records within our data.
+
+These ranking can either be applied across the entire query output, 
+or to partitioned groups within it. 
+
+It uses brute force to deal with ties returning always a sequencial
+series of ranking. 
+
+
+--Ranking all records within each group of sales order IDs
+
+SELECT
+	SalesOrderID,
+	SalesOrderDetailID,
+	LineTotal,
+	ProductIDLineTotal = SUM(LineTotal) OVER(PARTITION BY SalesOrderID),
+	Ranking = ROW_NUMBER() OVER(PARTITION BY SalesOrderID ORDER BY LineTotal DESC)
+
+FROM AdventureWorks2019.Sales.SalesOrderDetail
+
+ORDER BY
+SalesOrderID
+
+
+
+
+--Ranking ALL records by line total - no groups!
+
+SELECT
+	SalesOrderID,
+	SalesOrderDetailID,
+	LineTotal,
+	ProductIDLineTotal = SUM(LineTotal) OVER(PARTITION BY SalesOrderID),
+	Ranking = ROW_NUMBER() OVER(ORDER BY LineTotal DESC)
+
+FROM AdventureWorks2019.Sales.SalesOrderDetail
