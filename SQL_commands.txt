@@ -28,6 +28,14 @@
             ELSE 0
         END) AS col_name
     FROM table
+
+    --------------------------
+    E.G.:
+    SUM(CASE rental_rate
+            WHEN 0.99 THAN 1
+            ELSE 0
+        END) AS bargains
+    --------------------------
 - COALESCE: replace NULL with the desired value. 
     SELECT (col_1 - COALESCE(col_2,0))
     FROM table
