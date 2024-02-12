@@ -89,6 +89,9 @@ additional column.
 ----------------------------------------
 AGGREGATE FUN() **OVER()**
 ----------------------------------------
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
 --YTD Sales Via Aggregate Query:
 
 SELECT
@@ -115,6 +118,7 @@ SELECT BusinessEntityID
 
 FROM AdventureWorks2019.Sales.SalesPerson
 
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
 ----------------------------------------
 OVER(**PARTITION BY**) 
@@ -127,6 +131,9 @@ within our data, while still retaining row-level detail
 
 PARTITION BY assign each row of your query output to a group,
 without collapsing your data into fewer rows as with GROUP BY
+
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
 --Sum of line totals, grouped by ProductID AND OrderQty, in an aggregate query
 
@@ -161,6 +168,8 @@ FROM AdventureWorks2019.Sales.SalesOrderDetail
 
 ORDER BY ProductID, OrderQty DESC
 
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
 
 ----------------------------------------
 **ROW_NUMBER()** OVER(PARTITION BY ORDER BY)
@@ -170,9 +179,14 @@ ROW_NUMBER() give us the ability to rank records within our data.
 These ranking can either be applied across the entire query output, 
 or to partitioned groups within it. 
 
-It uses brute force to deal with ties returning always a sequencial
-series of ranking. 
+It uses brute force to deal with ties returning always a unique 
+sequencial series of ranking. 
 
+If you are trying to pick exactly one record from each partition
+group - either the first or last - use ROW_NUMBER()
+
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
 --Ranking all records within each group of sales order IDs
 
@@ -201,3 +215,34 @@ SELECT
 	Ranking = ROW_NUMBER() OVER(ORDER BY LineTotal DESC)
 
 FROM AdventureWorks2019.Sales.SalesOrderDetail
+
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+----------------------------------------
+**RANK()** OVER(PARTITION BY ORDER BY)
+**DENSE_RANK()** OVER(PARTITION BY ORDER BY)
+----------------------------------------
+RANK() assign the same rank for ties and skip the sequence ahead based
+on how many ties there are. So, the next number in the sequence is a 
+reflection of that number position in the partition group. 
+
+DENSE_RANK() if you want ties to be explicitly identified without having breaks 
+within the sequence of ranking.
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+--ROW_NUMBER, RANK, AND DENSE_RANK, compared
+
+SELECT
+	SalesOrderID,
+	SalesOrderDetailID,
+	LineTotal,
+	Ranking = ROW_NUMBER() OVER(PARTITION BY SalesOrderID ORDER BY LineTotal DESC),
+	RankingWithRank = RANK() OVER(PARTITION BY SalesOrderID ORDER BY LineTotal DESC),
+	RankingWithDenseRank = DENSE_RANK() OVER(PARTITION BY SalesOrderID ORDER BY LineTotal DESC)
+
+FROM AdventureWorks2019.Sales.SalesOrderDetail
+
+ORDER BY SalesOrderID, LineTotal DESC
+
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
