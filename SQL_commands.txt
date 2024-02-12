@@ -1,4 +1,7 @@
+###########################################
 ########## ADVANCED SQL COMMANDS ##########
+###########################################
+
 - EXTRACT: a sub-component of a data type colum
     SELECT EXTRACT({YEAR|MONTH|DAY|WEEK|QUARTER} FROM date_col)
     FROM table
@@ -9,8 +12,10 @@
     SELECT TO_CHAR(data_col, 'dd-mm-yyyy')
     FROM table
 
-
+#############################################
 ########## CONDITIONAL EXPRESSIONS ##########
+#############################################
+
 - CASE: correspond to the IF/ELSE statements
     SELECT col_condition
     CASE 
@@ -47,8 +52,10 @@ NB.: useful to return NULL if the denominator is equal to 0 in a division
     SELECT (col_1 / NULLIF(col_2, 0)) AS some_ratio
     FROM table
 
-
+################################
 ########## PROCEDURES ##########
+################################
+
 - VIEW: is a database object (virtual table - does not store data pysically only the query)
 It a combination of tables and conditions used quite often.
 + You can also also alter and update existing views
@@ -78,17 +85,19 @@ It a combination of tables and conditions used quite often.
     :: rename the view ...
     ALTER VIEW view_name RENAME TO new_view_name
 
-
+######################################
 ########## WINDOW FUNCTIONS ##########
+######################################
+
 Window functions allow you to include aggregate calculations in your
 queries, WITHOUT otherwise changing the output in any way.
 
 The aggregate calculation is simple tacked on to the query as and
 additional column.
 
-----------------------------------------
-AGGREGATE FUN() **OVER()**
-----------------------------------------
+================================================
+  AGGREGATE FUN() **OVER()**
+================================================
 
 >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
@@ -120,9 +129,10 @@ FROM AdventureWorks2019.Sales.SalesPerson
 
 <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
-----------------------------------------
-OVER(**PARTITION BY**) 
-----------------------------------------
+================================================
+  OVER(**PARTITION BY**) 
+================================================
+
 It is possible to group these calculations, just like we can with 
 aggregate queries, using PARTITION.
 
@@ -171,9 +181,10 @@ ORDER BY ProductID, OrderQty DESC
 <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
 
-----------------------------------------
-**ROW_NUMBER()** OVER(PARTITION BY ORDER BY)
-----------------------------------------
+================================================
+  **ROW_NUMBER()** OVER(PARTITION BY ORDER BY)
+================================================
+
 ROW_NUMBER() give us the ability to rank records within our data.
 
 These ranking can either be applied across the entire query output, 
@@ -218,10 +229,11 @@ FROM AdventureWorks2019.Sales.SalesOrderDetail
 
 <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
-----------------------------------------
-**RANK()** OVER(PARTITION BY ORDER BY)
-**DENSE_RANK()** OVER(PARTITION BY ORDER BY)
-----------------------------------------
+================================================
+  **RANK()** OVER(PARTITION BY ORDER BY)       
+  **DENSE_RANK()** OVER(PARTITION BY ORDER BY) 
+================================================
+
 RANK() assign the same rank for ties and skip the sequence ahead based
 on how many ties there are. So, the next number in the sequence is a 
 reflection of that number position in the partition group. 
