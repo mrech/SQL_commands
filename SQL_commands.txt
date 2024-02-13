@@ -95,9 +95,11 @@ queries, WITHOUT otherwise changing the output in any way.
 The aggregate calculation is simple tacked on to the query as and
 additional column.
 
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 ================================================
-  AGGREGATE FUN() **OVER()**
+  AGGREGATE FUN([column]) **OVER()**
 ================================================
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
 >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
@@ -129,9 +131,11 @@ FROM AdventureWorks2019.Sales.SalesPerson
 
 <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 ================================================
-  OVER(**PARTITION BY**) 
+  OVER(**PARTITION BY** [column|s]) 
 ================================================
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
 It is possible to group these calculations, just like we can with 
 aggregate queries, using PARTITION.
@@ -180,10 +184,11 @@ ORDER BY ProductID, OrderQty DESC
 
 <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
-
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 ================================================
-  **ROW_NUMBER()** OVER(PARTITION BY ORDER BY)
+  **ROW_NUMBER()** OVER(PARTITION BY [column|s] ORDER BY [column|s])
 ================================================
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
 ROW_NUMBER() give us the ability to rank records within our data.
 
@@ -229,10 +234,12 @@ FROM AdventureWorks2019.Sales.SalesOrderDetail
 
 <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 ================================================
-  **RANK()** OVER(PARTITION BY ORDER BY)       
-  **DENSE_RANK()** OVER(PARTITION BY ORDER BY) 
+  **RANK()** OVER(PARTITION BY [column|s] ORDER BY [column|s])      
+  **DENSE_RANK()** OVER(PARTITION BY [column|s] ORDER BY [column|s]) 
 ================================================
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
 RANK() assign the same rank for ties and skip the sequence ahead based
 on how many ties there are. So, the next number in the sequence is a 
@@ -256,5 +263,262 @@ SELECT
 FROM AdventureWorks2019.Sales.SalesOrderDetail
 
 ORDER BY SalesOrderID, LineTotal DESC
+
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+================================================
+ **LEAD([column], [n])** OVER(PARTITION BY [column|s] ORDER BY [column|s])
+ **LAG([column], [n])** OVER(PARTITION BY [column|s] ORDER BY [column|s])
+================================================
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
+LEAD and LAG let us grab values from subsequent or previous
+records relative to the position of the "current" record in 
+our data. 
+
+They can be useful any time we want to compare a value in a given 
+column to the next or previous value in the same column - but side by side, in the same row.
+
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+--Basic LEAD/LAG example
+
+SELECT
+       SalesOrderID
+      ,OrderDate
+      ,CustomerID
+      ,TotalDue
+	  ,NextTotalDue = LEAD(TotalDue, 3) OVER(ORDER BY SalesOrderID)
+	  ,PrevTotalDue = LAG(TotalDue, 3) OVER(ORDER BY SalesOrderID)
+
+FROM AdventureWorks2019.Sales.SalesOrderHeader
+
+ORDER BY SalesOrderID
+
+
+
+
+--Looking forward (or backward) more than one record
+
+SELECT
+       SalesOrderID
+      ,OrderDate
+      ,CustomerID
+      ,TotalDue
+	  ,NextTotalDue = LEAD(TotalDue, 3) OVER(ORDER BY SalesOrderID)
+	  ,PrevTotalDue = LAG(TotalDue, 3) OVER(ORDER BY SalesOrderID)
+
+FROM AdventureWorks2019.Sales.SalesOrderHeader
+
+ORDER BY SalesOrderID
+
+
+
+
+
+--Using PARTITION with LEAD and LAG
+
+SELECT
+       SalesOrderID
+      ,OrderDate
+      ,CustomerID
+      ,TotalDue
+	  ,NextTotalDue = LEAD(TotalDue, 1) OVER(PARTITION BY CustomerID ORDER BY SalesOrderID)
+	  ,PrevTotalDue = LAG(TotalDue, 1) OVER(PARTITION BY CustomerID ORDER BY SalesOrderID)
+
+FROM AdventureWorks2019.Sales.SalesOrderHeader
+
+ORDER BY CustomerID, SalesOrderID
+
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+================================================
+ **FIRST_VALUE([column])** OVER(PARTITION BY [column|s] ORDER BY [column|s])
+================================================
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
+Operates over a window of rows defined by a PARTITION BY clause.
+Returns the *first value* from the specified column within that window.
+Useful for comparing the values in each row of a window with the first one.
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+--Highest and lowest line totals per customer
+
+SELECT
+	SalesOrderID,
+	SalesOrderDetailID,
+	LineTotal,
+	Ranking = ROW_NUMBER() OVER(PARTITION BY SalesOrderID ORDER BY LineTotal DESC),
+	HighestTotal = FIRST_VALUE(LineTotal) OVER(PARTITION BY SalesOrderID ORDER BY LineTotal DESC),
+	LowestTotal = FIRST_VALUE(LineTotal) OVER(PARTITION BY SalesOrderID ORDER BY LineTotal)
+
+FROM AdventureWorks2019.Sales.SalesOrderDetail
+
+ORDER BY
+	SalesOrderID, LineTotal DESC
+
+
+
+
+--First/oldest order per customer
+
+SELECT 
+	CustomerID,
+	OrderDate,
+	TotalDue,
+	FirstOrderAmt = FIRST_VALUE(TotalDue) OVER(PARTITION BY CustomerID ORDER BY OrderDate)
+ 
+FROM AdventureWorks2019.Sales.SalesOrderHeader
+
+ORDER BY CustomerID, OrderDate
+
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+================================================
+ SUBQUERIES
+================================================
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
+Subqueries are best for straightforward, two-step queries.
+
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+--Selecting the most expensive item per order in a single query
+
+SELECT
+*
+FROM
+(
+SELECT
+SalesOrderID,
+SalesOrderDetailID,
+LineTotal,
+LineTotalRanking = ROW_NUMBER() OVER(PARTITION BY SalesOrderID ORDER BY LineTotal DESC)
+
+FROM AdventureWorks2019.Sales.SalesOrderDetail
+
+) A
+
+WHERE LineTotalRanking = 1
+
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+================================================
+  AGGREGATE FUN([column]) OVER(ODER BY [column|s] **ROWS BETWEEN [n] PRECEDING AND CURRENT ROW**)
+  AGGREGATE FUN([column]) OVER(ODER BY [column|s] **ROWS BETWEEN [n] PRECEDING AND [n] PRECEDING**)
+  AGGREGATE FUN([column]) OVER(ODER BY [column|s] **ROWS BETWEEN [n] PRECEDING AND [n] FOLLOWING**)
+================================================
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
+Moving averages are used frequently because they are good at
+smoothing out short term fluctuations in the overall trend of
+our data. Making it easy to identify patterns and overall trends.
+
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+/*Rolling 3 day total*/
+
+SELECT
+    OrderDate,
+    TotalDue,
+	SalesLast3Days = SUM(TotalDue) OVER(ORDER BY OrderDate ROWS BETWEEN 2 PRECEDING AND CURRENT ROW)
+FROM (
+	SELECT
+		OrderDate,
+		TotalDue = SUM(TotalDue)
+	FROM
+		Sales.SalesOrderHeader
+
+	WHERE YEAR(OrderDate) = 2014
+
+	GROUP BY
+		OrderDate
+) X
+
+ORDER BY
+    OrderDate
+
+
+
+/*Rolling 3 day total, not inclusive of "current" row*/
+
+
+SELECT
+    OrderDate,
+    TotalDue,
+	SalesLast3Days = SUM(TotalDue) OVER(ORDER BY OrderDate ROWS BETWEEN 3 PRECEDING AND 1 PRECEDING)
+FROM (
+	SELECT
+		OrderDate,
+		TotalDue = SUM(TotalDue)
+	FROM
+		Sales.SalesOrderHeader
+
+	WHERE YEAR(OrderDate) = 2014
+
+	GROUP BY
+		OrderDate
+) X
+
+ORDER BY
+    OrderDate
+
+
+/*Rolling 3 day total, spanning previous and following row*/
+
+
+SELECT
+    OrderDate,
+    TotalDue,
+	SalesLast3Days = SUM(TotalDue) OVER(ORDER BY OrderDate ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING)
+FROM (
+	SELECT
+		OrderDate,
+		TotalDue = SUM(TotalDue)
+	FROM
+		Sales.SalesOrderHeader
+
+	WHERE YEAR(OrderDate) = 2014
+
+	GROUP BY
+		OrderDate
+) X
+
+ORDER BY
+    OrderDate
+
+
+
+/*Rolling 3 day average - aka, a "moving" average*/
+
+
+SELECT
+    OrderDate,
+    TotalDue,
+	SalesLast3Days = AVG(TotalDue) OVER(ORDER BY OrderDate ROWS BETWEEN 2 PRECEDING AND CURRENT ROW)
+FROM (
+	SELECT
+		OrderDate,
+		TotalDue = SUM(TotalDue)
+	FROM
+		Sales.SalesOrderHeader
+
+	WHERE YEAR(OrderDate) = 2014
+
+	GROUP BY
+		OrderDate
+) X
+
+ORDER BY
+    OrderDate
+
 
 <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
