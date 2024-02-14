@@ -380,12 +380,11 @@ ORDER BY CustomerID, OrderDate
 
 @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 ================================================
- SUBQUERIES
+ SUBQUERIES WITHIN THE FROM CLUASE
 ================================================
 @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
 Subqueries are best for straightforward, two-step queries.
-
 
 >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
@@ -403,11 +402,83 @@ FROM
 
     FROM AdventureWorks2019.Sales.SalesOrderDetail
 
-) A
+) A -- subqueries from the FORM clause requires an ALIAS
 
 WHERE LineTotalRanking = 1
 
 <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+================================================
+ SCALAR SUBQUERIES
+================================================
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
+Use them any time you want to include aggregate calculations directly in the WHERE clause.
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+--Example 1: Scalar values
+
+SELECT
+	MAX(ListPrice)
+FROM AdventureWorks2019.Production.Product
+
+SELECT
+	AVG(ListPrice)
+FROM AdventureWorks2019.Production.Product
+
+
+
+
+--Example 2: Scalar subqueries in the SELECT and WHERE clauses
+
+SELECT 
+	   ProductID
+      ,[Name]
+      ,StandardCost
+      ,ListPrice
+	  ,AvgListPrice = (SELECT AVG(ListPrice) FROM AdventureWorks2019.Production.Product)
+	  ,AvgListPriceDiff = ListPrice - (SELECT AVG(ListPrice) FROM AdventureWorks2019.Production.Product)
+
+FROM AdventureWorks2019.Production.Product
+
+WHERE ListPrice > (SELECT AVG(ListPrice) FROM AdventureWorks2019.Production.Product)
+
+ORDER BY ListPrice ASC
+
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+================================================
+ CORRELATED SUBQUERIES
+================================================
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
+Correlated subqueries are subqueries that run once for each record in the main/outer query.
+They then return a scalar output for each of those records.
+Correlated subqueries can be used in either the SELECT and WHERE clauses. 
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+SELECT 
+       SalesOrderID
+      ,OrderDate
+      ,SubTotal
+      ,TaxAmt
+      ,Freight
+      ,TotalDue
+	  ,MultiOrderCount = --correlated subquery
+	  (
+		  SELECT
+		  COUNT(*)
+		  FROM AdventureWorks2019.Sales.SalesOrderDetail B
+		  WHERE A.SalesOrderID = B.SalesOrderID
+		  AND B.OrderQty > 1
+	  )
+
+  FROM AdventureWorks2019.Sales.SalesOrderHeader A
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
 
 @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 ================================================
@@ -520,5 +591,155 @@ FROM (
 ORDER BY
     OrderDate
 
+
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+================================================
+  EXISTS & NOT EXISTS SUBQUERY
+================================================
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
+EXISTS: checks to see if a match according to whatever criteria
+we've set exists in another table, but it doesn't particularly 
+care which record matches or how many matches there are.
+
+
+
+For one-to-one relationships, there really isn't much of
+an advantage to using EXISTS over JOIN.
+However, EXISTS offers some powerful advantages when dealing
+with one-to-many relationships.
+
+Useful to apply criteria to fields from a secondary table,
+but don't need to include those fields in your output.
+
+You want to apply criteria to fields from a secondary table,
+while ensuring that multiple matches in the secondary table won't
+duplicate data from the primary table in your output.
+
+You need to check a secondary table to make sure a match of
+some type does NOT exist.
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+--Example 1 with one-to-many relationships
+
+SELECT * FROM AdventureWorks2019.Sales.SalesOrderHeader WHERE SalesOrderID = 43683;
+
+SELECT * FROM AdventureWorks2019.Sales.SalesOrderDetail WHERE SalesOrderID = 43683;
+
+-- Example of a order without a line of at least 10.000$
+SELECT * FROM AdventureWorks2019.Sales.SalesOrderDetail WHERE SalesOrderID = 43659;
+
+
+
+--Example 2: One to many with JOIN criteria
+/*
+Here, we want to see all customer orders that have at least one item with 
+a line total of 10.000$. However, we do not want to get to the specific item within that order. 
+*/
+
+SELECT
+       A.SalesOrderID
+      ,A.OrderDate
+      ,A.TotalDue
+
+FROM AdventureWorks2019.Sales.SalesOrderHeader A
+	INNER JOIN AdventureWorks2019.Sales.SalesOrderDetail B
+		ON A.SalesOrderID = B.SalesOrderID
+
+WHERE B.LineTotal > 10000
+
+ORDER BY A.SalesOrderID
+
+-- The ABOVE solution creates unwated duplicates
+
+
+
+--Example 3: Using EXISTS to pick only the records we need
+
+SELECT
+       A.SalesOrderID
+      ,A.OrderDate
+      ,A.TotalDue
+
+FROM AdventureWorks2019.Sales.SalesOrderHeader A
+
+WHERE EXISTS (  -- return nothing. Just check the existance of a record in another table
+	SELECT -- here, you can put whatever you want
+	1
+	FROM AdventureWorks2019.Sales.SalesOrderDetail B
+	WHERE A.SalesOrderID = B.SalesOrderID -- correlated subqueries
+		AND B.LineTotal > 10000
+)
+
+-- AND A.SalesOrderID = 43659 -- To check if indeed orders without items of at least 10.000$ aren't within the output table
+
+ORDER BY A.SalesOrderID
+
+
+
+--Example 4: Get the opposite in a one-to-many relationships context
+-- using the JOIN critiria
+/*
+Here, we want to see all customer orders without items with 
+a line total of 10.000$. However, we do not want to get to the specific item within that order. 
+*/
+
+SELECT
+       A.SalesOrderID
+      ,A.OrderDate
+      ,A.TotalDue
+	  ,B.SalesOrderDetailID
+	  ,B.LineTotal
+
+FROM AdventureWorks2019.Sales.SalesOrderHeader A
+	INNER JOIN AdventureWorks2019.Sales.SalesOrderDetail B
+		ON A.SalesOrderID = B.SalesOrderID
+
+WHERE B.LineTotal < 10000
+	AND A.SalesOrderID = 43683
+
+ORDER BY A.SalesOrderID
+
+-- The ABOVE solution doesn't even do what we want!
+-- It returns all items within a order that are less than or equal to $10.000
+
+
+SELECT
+*
+FROM AdventureWorks2019.Sales.SalesOrderDetail
+
+WHERE SalesOrderID = 43683
+
+ORDER BY LineTotal DESC
+
+
+
+
+--Example 6: NOT EXISTS
+/*
+Here, we want to see all customer orders without items with 
+a line total of 10.000$. However, we do not want to get to the specific item within that order. 
+*/
+
+SELECT
+       A.SalesOrderID
+      ,A.OrderDate
+      ,A.TotalDue
+
+FROM AdventureWorks2019.Sales.SalesOrderHeader A
+
+WHERE NOT EXISTS ( -- kicks the record out if exists
+	SELECT
+	1
+	FROM AdventureWorks2019.Sales.SalesOrderDetail B
+	WHERE A.SalesOrderID = B.SalesOrderID
+		AND B.LineTotal > 10000
+)
+-- AND A.SalesOrderID = 43683 -- To check if indeed orders with items greater of 10.000$ aren't within the output table
+
+ORDER BY A.SalesOrderID
 
 <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
