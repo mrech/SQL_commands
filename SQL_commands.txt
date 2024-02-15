@@ -743,3 +743,209 @@ WHERE NOT EXISTS ( -- kicks the record out if exists
 ORDER BY A.SalesOrderID
 
 <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+================================================
+  **FOR XML PATH('')** + 
+  **STUFF(txt, position_stuff_into, n_trim_leading_char, stuff_into)**
+================================================
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
+FOR XML PATH is used to flatten multiple line outcomes in one string of values.
+XML is just another way of programmatically structuring data,
+where each value in our output are surounded with tag of the selected field.
+
+We replace XML tags with text delimiters (e.i., comma or a semicolon) by
+concatenating the output values with a comma. 
+
+STUFF takes a string that we supply and then stuffs it into another string 
+at a position that we specify treaming all leading characters that we do not want. 
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+-- Step 1: FOR XML PATH(''):
+
+SELECT
+LineTotal
+FROM AdventureWorks2019.Sales.SalesOrderDetail A
+WHERE A.SalesOrderID = 43659
+FOR XML PATH('')
+
+-- Step 2: Concatenate the outputs as text separated with commas:
+
+SELECT
+-- AS MONEY TRIM UNECESSARY TRILING ZEROS AFTER THE DECIMAL PLACE
+',' + CAST(CAST(LineTotal AS MONEY) AS VARCHAR) 
+FROM AdventureWorks2019.Sales.SalesOrderDetail A
+WHERE A.SalesOrderID = 43659
+FOR XML PATH('')
+
+--Step 3: Using **STUFF** convert XML to a plain string and get rid of that first comma
+          -- before the first item in the series.
+
+-- outter query
+SELECT
+	STUFF(
+		  (   -- subquery
+			  SELECT
+			  ',' + CAST(CAST(LineTotal AS MONEY) AS VARCHAR)
+			  FROM AdventureWorks2019.Sales.SalesOrderDetail A
+			  WHERE A.SalesOrderID = 43659
+			  FOR XML PATH('')
+		  ),
+		  1,1,'')
+
+
+
+--Step 4: Final example query
+
+SELECT 
+       SalesOrderID
+      ,OrderDate
+      ,SubTotal
+      ,TaxAmt
+      ,Freight
+      ,TotalDue
+	  ,LineTotals = 
+		STUFF(
+			  (
+				  SELECT
+				  ',' + CAST(CAST(LineTotal AS MONEY) AS VARCHAR)
+				  FROM AdventureWorks2019.Sales.SalesOrderDetail B
+				  WHERE A.SalesOrderID = B.SalesOrderID -- correlated subquery
+				  FOR XML PATH('')
+			  ),
+			  1,1,''
+		  )
+
+FROM AdventureWorks2019.Sales.SalesOrderHeader A
+
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+================================================
+  **PIVOT** 
+================================================
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
+The pivot operator lets us transpose and aggregate our data.
+
+For each unique value in our ID column, we're 
+getting a column in our pivoted output. Using an aggregate
+function, we summurize all the row-wise values within 
+that specific pivot output column.
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+-- outter query
+SELECT
+-- list of our new pivoted columns
+[Accessories],
+[Bikes],
+[Clothing],
+[Components]
+
+FROM
+-- Subquery
+(
+SELECT
+	   ProductCategoryName = D.Name,
+	   A.LineTotal
+
+FROM AdventureWorks2019.Sales.SalesOrderDetail A
+	JOIN AdventureWorks2019.Production.Product B
+		ON A.ProductID = B.ProductID
+	JOIN AdventureWorks2019.Production.ProductSubcategory C
+		ON B.ProductSubcategoryID = C.ProductSubcategoryID
+	JOIN AdventureWorks2019.Production.ProductCategory D
+		ON C.ProductCategoryID = D.ProductCategoryID
+) E -- we need to alias it because it is part of a subquery within a FROM clause
+
+-- pivot keyword
+PIVOT(
+-- numerical field that we're trying to perform aggregations on. 
+SUM(LineTotal)
+-- categorical value we want to PIVOT on
+-- list the columns we want to see us our output
+-- since SQL isn't going to detect all the unique values by itself
+FOR ProductCategoryName IN([Accessories],[Bikes],[Clothing],[Components]) 
+) F
+
+
+-- with * we get the same output
+SELECT *
+
+FROM
+-- Subquery
+(
+SELECT
+	   ProductCategoryName = D.Name,
+	   A.LineTotal
+
+FROM AdventureWorks2019.Sales.SalesOrderDetail A
+	JOIN AdventureWorks2019.Production.Product B
+		ON A.ProductID = B.ProductID
+	JOIN AdventureWorks2019.Production.ProductSubcategory C
+		ON B.ProductSubcategoryID = C.ProductSubcategoryID
+	JOIN AdventureWorks2019.Production.ProductCategory D
+		ON C.ProductCategoryID = D.ProductCategoryID
+) E -- we need to alias it because it is part of a subquery within a FROM clause
+
+-- pivot keyword
+PIVOT(
+-- numerical field that we're trying to perform aggregations on. 
+SUM(LineTotal)
+-- categorical value we want to PIVOT on
+-- list the columns we want to see us our output
+-- since SQL isn't going to detect all the unique values by itself
+FOR ProductCategoryName IN([Accessories],[Bikes],[Clothing],[Components]) 
+) F
+
+ORDER BY 1
+
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+-- Make pivoted data a little more granular by adding an 
+-- additional layer of grouping 
+
+SELECT
+[Order Quantity] = OrderQty, -- Business friendly alias
+[Bikes],
+[Clothing]
+
+FROM
+(
+SELECT
+/*Any column you include in your subquery here that is providing
+the base data that you're ultimately pivoting, that is not being aggregated
+or transposed within the PIVOT keyword below, becomes a new column in our
+output. 
+
+And our aggregated totals under each column we specified at our enlist are now 
+broken out by all of the unique values in that additional column 
+we have in our subquery.*/
+
+	   ProductCategoryName = D.Name,
+	   A.LineTotal,
+	   A.OrderQty
+
+FROM AdventureWorks2019.Sales.SalesOrderDetail A
+	JOIN AdventureWorks2019.Production.Product B
+		ON A.ProductID = B.ProductID
+	JOIN AdventureWorks2019.Production.ProductSubcategory C
+		ON B.ProductSubcategoryID = C.ProductSubcategoryID
+	JOIN AdventureWorks2019.Production.ProductCategory D
+		ON C.ProductCategoryID = D.ProductCategoryID
+) E
+
+PIVOT(
+-- the field we're applying aggregation to 
+SUM(LineTotal)
+-- and the fields that we are transposing
+FOR ProductCategoryName IN([Bikes],[Clothing])
+) F
+
+ORDER BY 1
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
