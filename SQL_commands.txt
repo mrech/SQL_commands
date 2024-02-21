@@ -378,6 +378,10 @@ ORDER BY CustomerID, OrderDate
 
 <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
+################################
+########## SUBQUERIES ##########
+################################
+
 @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 ================================================
  SUBQUERIES WITHIN THE FROM CLUASE
@@ -385,6 +389,11 @@ ORDER BY CustomerID, OrderDate
 @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
 Subqueries are best for straightforward, two-step queries.
+
+Each subquery is referenced by some outer query, 
+which in turn can be a subquery that is referenced
+again by some other outer query and so on and so 
+forth until we finally reach our main query.
 
 >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
@@ -948,4 +957,146 @@ FOR ProductCategoryName IN([Bikes],[Clothing])
 ) F
 
 ORDER BY 1
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+#####################################################
+########## COMMON TABLE EXPRESSIONS (CTEs) ##########
+#####################################################
+
+CTEs allow to to express multi-stage data transformations in
+a linear, step by step way that is easy to follow.
+
+CTEs are usually a superior tool versus subqueries
+for any kind of analysis or data transformation process 
+that requires more than two steps.
+
+They give you a tremendous amount of flexibility because 
+once you've defined one of those virtual tables, you can reference 
+it in any of the virtual tables that follow.
+
+So if I have ten virtual tables defined, my eighth virtual
+table can reference my second, my third and my fourth.
+
+Whereas with subqueries, each layer can only access the 
+layer immediately beneath it.
+It can't reference the subquery buried 2 or 3 layers below.
+
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+================================================
+ WITH [virtual_table_name] AS ()
+================================================
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+-- 3. Refactored using CTE:
+
+-- Virtual Tables Setup
+-- Define a virtual table called: Sales
+WITH Sales AS
+(
+-- starter inner query
+SELECT 
+       OrderDate
+	  ,OrderMonth = DATEFROMPARTS(YEAR(OrderDate),MONTH(OrderDate),1)
+      ,TotalDue
+	  ,OrderRank = ROW_NUMBER() OVER(PARTITION BY DATEFROMPARTS(YEAR(OrderDate),MONTH(OrderDate),1) ORDER BY TotalDue DESC)
+FROM AdventureWorks2019.Sales.SalesOrderHeader
+),
+-- End starter inner query
+-- SELECT * FROM Sales -- check the Sales virtual table
+
+Top10Sales AS --next virtual table
+(
+SELECT
+OrderMonth,
+Top10Total = SUM(TotalDue)
+FROM Sales
+WHERE OrderRank <= 10
+GROUP BY OrderMonth
+)
+
+-- SELECT * FROM Top10Sales -- check the Top10Sales virtual table
+-- End Virtual Tables Setup
+
+-- Final single query that give us the final output.
+SELECT
+A.OrderMonth,
+A.Top10Total,
+PrevTop10Total = B.Top10Total
+
+FROM Top10Sales A
+	LEFT JOIN Top10Sales B
+		ON A.OrderMonth = DATEADD(MONTH,1,B.OrderMonth)
+
+ORDER BY 1
+
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+================================================
+ RECURSIVE CTEs
+================================================
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
+Generating series of values with recursion, example calendar tables.
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+--Example 1: generate number series with recursive CTE
+
+
+-- Create the CTE
+WITH NumberSeries AS
+(
+SELECT
+-- (1) Define an ANCOR MEMBER.
+-- The first item in the series that the rest of the series build upon. 
+ 1 AS MyNumber
+
+-- Stacking the numbers together
+UNION  ALL
+
+ -- (2) RECURSIVE MEMBER
+ -- with a self-reference to the virtual table itself.
+SELECT 
+MyNumber + 1
+FROM NumberSeries
+-- (3) TERMINATION CONDITION
+WHERE MyNumber < 100
+)
+
+-- final unique select statement
+SELECT
+MyNumber
+FROM NumberSeries;
+
+
+
+--Example 2: generate date series with recursive CTE
+
+WITH Dates AS
+(
+SELECT
+-- (1) ANCOR MEMBER.
+ CAST('01-01-2021' AS DATE) AS MyDate
+
+UNION ALL
+
+-- (2) RECURSIVE MEMBER
+SELECT
+DATEADD(DAY, 1, MyDate)
+FROM Dates
+-- (3) TERMINATION CONDITION
+WHERE MyDate < CAST('12-31-2021' AS DATE)
+)
+
+SELECT
+MyDate
+
+FROM Dates
+
+-- To overwrite the maximum recursion limits of 100
+OPTION (MAXRECURSION 365)
+
+
 <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
