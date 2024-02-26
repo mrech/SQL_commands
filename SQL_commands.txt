@@ -981,6 +981,13 @@ Whereas with subqueries, each layer can only access the
 layer immediately beneath it.
 It can't reference the subquery buried 2 or 3 layers below.
 
+USE CTEs WHEN:
+> You just need a single query output
+
+> Querying small to medium-sized datasets.
+  If a CTE is running slow, try rewriting it with 
+  optimized TEMP TABLES.
+
 @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 ================================================
  WITH [virtual_table_name] AS ()
@@ -1100,3 +1107,168 @@ OPTION (MAXRECURSION 365)
 
 
 <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+================================================
+ TEMP TABLES: **INTO** 
+================================================
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
+Temp tables are a more fexible and powerful alternative to CTEs. 
+Temp tables, instead of being limited by the scope of the current
+query, are only limited by the current session. 
+
+
+LIMITATIONS OF CTEs:
+> CTEs can only be used in the current query scope, meaning 
+  they cannot be referenced after the final SELECT.
+
+> This can be a problem if you need to reuse your virtual
+  tables multiple times for different purposes. 
+
+> Virtual tables cannot be referenced individually, making 
+  debugging more difficult.
+
+> Certain optimization techniques are not available 
+  to CTEs.
+
+
+USE TMEP TABLES WHEN:
+> You need to reference one of your virtual tables in 
+  multiple outputs
+
+> You need to join massive datasets in your virtual tables
+
+> You need a "script" instead of a query: a bundle of SQL
+  statement that does more than returning a single output.
+
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+SELECT 
+       OrderDate
+	  ,OrderMonth = DATEFROMPARTS(YEAR(OrderDate),MONTH(OrderDate),1)
+      ,TotalDue
+	  ,OrderRank = ROW_NUMBER() OVER(PARTITION BY DATEFROMPARTS(YEAR(OrderDate),MONTH(OrderDate),1) ORDER BY TotalDue DESC)
+
+INTO #Sales -- Keyword and temp table name
+
+FROM AdventureWorks2019.Sales.SalesOrderHeader
+
+
+SELECT
+	OrderMonth,
+	Top10Total = SUM(TotalDue)
+
+INTO #Top10Sales
+
+FROM #Sales
+
+WHERE OrderRank <= 10
+
+GROUP BY OrderMonth
+
+
+
+SELECT
+	A.OrderMonth,
+	A.Top10Total,
+	PrevTop10Total = B.Top10Total
+
+FROM #Top10Sales A
+	LEFT JOIN #Top10Sales B
+		ON A.OrderMonth = DATEADD(MONTH,1,B.OrderMonth)
+
+ORDER BY 1
+
+SELECT * FROM #Sales WHERE OrderRank <= 5;
+
+SELECT * FROM #Sales WHERE OrderRank <= 10;
+
+-- Drop temp tables to recreates them
+-- It's good practice to drop your temp tables at the 
+-- end of your code because they do take up mememory
+-- in the SQL servers.
+DROP TABLE #Sales
+DROP TABLE #Top10Sales
+
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+================================================
+ CREATE & INSERT TEMP TABLES
+================================================
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
+For more explicit control over your tables. 
+And for increased optimization. 
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+/* CREATE and INSERT TEMP TABLES*/
+
+-- Creates an empty table
+CREATE TABLE #Sales
+(
+       OrderDate DATE
+	  ,OrderMonth DATE
+      ,TotalDue MONEY
+	  ,OrderRank INT
+)
+
+-- Insert data into the newly created temp table
+INSERT INTO #Sales
+(
+       OrderDate
+	  ,OrderMonth
+      ,TotalDue
+	  ,OrderRank
+)
+SELECT 
+       OrderDate
+	  ,OrderMonth = DATEFROMPARTS(YEAR(OrderDate),MONTH(OrderDate),1)
+      ,TotalDue
+	  ,OrderRank = ROW_NUMBER() OVER(PARTITION BY DATEFROMPARTS(YEAR(OrderDate),MONTH(OrderDate),1) ORDER BY TotalDue DESC)
+
+FROM AdventureWorks2019.Sales.SalesOrderHeader
+
+
+
+CREATE TABLE #Top10Sales
+(
+OrderMonth DATE,
+Top10Total MONEY
+)
+
+-- NOT RECOMENDED: Without parentheses
+-- SQL assumes that order and the columns
+-- in the CREATE TABLE statement
+
+INSERT INTO #Top10Sales
+
+SELECT
+OrderMonth,
+Top10Total = SUM(TotalDue)
+
+FROM #Sales
+WHERE OrderRank <= 10
+GROUP BY OrderMonth
+
+
+
+SELECT
+A.OrderMonth,
+A.Top10Total,
+PrevTop10Total = B.Top10Total
+
+FROM #Top10Sales A
+	LEFT JOIN #Top10Sales B
+		ON A.OrderMonth = DATEADD(MONTH,1,B.OrderMonth)
+
+ORDER BY 1
+
+SELECT * FROM #Sales WHERE OrderRank <= 10
+
+DROP TABLE #Sales
+DROP TABLE #Top10Sales
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
