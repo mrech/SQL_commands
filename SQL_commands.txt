@@ -1,6 +1,6 @@
-###########################################
-########## ADVANCED SQL COMMANDS ##########
-###########################################
+###########################################################################
+########## ADVANCED SQL COMMANDS ##########################################
+###########################################################################
 
 - EXTRACT: a sub-component of a data type colum
     SELECT EXTRACT({YEAR|MONTH|DAY|WEEK|QUARTER} FROM date_col)
@@ -12,9 +12,9 @@
     SELECT TO_CHAR(data_col, 'dd-mm-yyyy')
     FROM table
 
-#############################################
-########## CONDITIONAL EXPRESSIONS ##########
-#############################################
+#############################################################################
+########## CONDITIONAL EXPRESSIONS ##########################################
+#############################################################################
 
 - CASE: correspond to the IF/ELSE statements
     SELECT col_condition
@@ -52,9 +52,9 @@ NB.: useful to return NULL if the denominator is equal to 0 in a division
     SELECT (col_1 / NULLIF(col_2, 0)) AS some_ratio
     FROM table
 
-################################
-########## PROCEDURES ##########
-################################
+################################################################
+########## PROCEDURES ##########################################
+################################################################
 
 - VIEW: is a database object (virtual table - does not store data pysically only the query)
 It a combination of tables and conditions used quite often.
@@ -85,9 +85,9 @@ It a combination of tables and conditions used quite often.
     :: rename the view ...
     ALTER VIEW view_name RENAME TO new_view_name
 
-######################################
-########## WINDOW FUNCTIONS ##########
-######################################
+######################################################################
+########## WINDOW FUNCTIONS ##########################################
+######################################################################
 
 Window functions allow you to include aggregate calculations in your
 queries, WITHOUT otherwise changing the output in any way.
@@ -378,9 +378,9 @@ ORDER BY CustomerID, OrderDate
 
 <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
-################################
-########## SUBQUERIES ##########
-################################
+################################################################
+########## SUBQUERIES ##########################################
+################################################################
 
 @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 ================================================
@@ -959,9 +959,9 @@ FOR ProductCategoryName IN([Bikes],[Clothing])
 ORDER BY 1
 <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
-#####################################################
-########## COMMON TABLE EXPRESSIONS (CTEs) ##########
-#####################################################
+#####################################################################################
+########## COMMON TABLE EXPRESSIONS (CTEs) ##########################################
+#####################################################################################
 
 CTEs allow to to express multi-stage data transformations in
 a linear, step by step way that is easy to follow.
@@ -1107,6 +1107,10 @@ OPTION (MAXRECURSION 365)
 
 
 <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+###########################################################################
+########## TEMP TABLES ####################################################
+###########################################################################
 
 @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 ================================================
@@ -1272,3 +1276,268 @@ DROP TABLE #Sales
 DROP TABLE #Top10Sales
 <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+================================================
+ TRUNCATE TABLE
+================================================
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
+For clearing and reusing tables to streamline and 
+optimize your code.
+
+Truncate is useful to clear out and reuse temp tables, 
+especially in cases where you have data coming from 
+different sources that nonetheless is structured similarly.
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+/*Whole point of this exercise is to not create
+unnecessary redundant temp tables.*/
+
+-- The temp table created must have the same structure (columns and types)
+-- for all the populated temp tables that follows. 
+
+CREATE TABLE #Orders
+(
+       OrderDate DATE
+	  ,OrderMonth DATE
+      ,TotalDue MONEY
+	  ,OrderRank INT
+)
+
+
+-- handle the Sales data and the Purchases data
+-- one at the time to avoid duplicates
+INSERT INTO #Orders
+(
+       OrderDate
+	  ,OrderMonth
+      ,TotalDue
+	  ,OrderRank
+)
+SELECT 
+       OrderDate
+	  ,OrderMonth = DATEFROMPARTS(YEAR(OrderDate),MONTH(OrderDate),1)
+      ,TotalDue
+	  ,OrderRank = ROW_NUMBER() OVER(PARTITION BY DATEFROMPARTS(YEAR(OrderDate),MONTH(OrderDate),1) ORDER BY TotalDue DESC)
+
+FROM AdventureWorks2019.Sales.SalesOrderHeader
+
+
+
+CREATE TABLE #Top10Orders
+(
+OrderMonth DATE,
+OrderType VARCHAR(32),
+Top10Total MONEY
+)
+
+
+INSERT INTO #Top10Orders
+(
+OrderMonth,
+OrderType,
+Top10Total
+)
+SELECT
+OrderMonth,
+OrderType = 'Sales', -- distinguish between Sales and Purchases
+Top10Total = SUM(TotalDue)
+
+FROM #Orders
+WHERE OrderRank <= 10
+GROUP BY OrderMonth
+
+
+/*Fun part begins here*/
+-- Empty the Orders temp data.
+-- And pupulate the Orders temp table with the Purchases data instead of Sales data.
+TRUNCATE TABLE #Orders
+
+INSERT INTO #Orders
+(
+       OrderDate
+	  ,OrderMonth
+      ,TotalDue
+	  ,OrderRank
+)
+SELECT 
+       OrderDate
+	  ,OrderMonth = DATEFROMPARTS(YEAR(OrderDate),MONTH(OrderDate),1)
+      ,TotalDue
+	  ,OrderRank = ROW_NUMBER() OVER(PARTITION BY DATEFROMPARTS(YEAR(OrderDate),MONTH(OrderDate),1) ORDER BY TotalDue DESC)
+
+FROM AdventureWorks2019.Purchasing.PurchaseOrderHeader
+
+-- add the Purchase data together with the Sales data
+INSERT INTO #Top10Orders
+(
+OrderMonth,
+OrderType,
+Top10Total
+)
+SELECT
+OrderMonth,
+OrderType = 'Purchase',
+Top10Total = SUM(TotalDue)
+
+FROM #Orders
+WHERE OrderRank <= 10
+GROUP BY OrderMonth
+
+
+SELECT
+A.OrderMonth,
+A.OrderType,
+A.Top10Total,
+PrevTop10Total = B.Top10Total
+
+FROM #Top10Orders A
+	LEFT JOIN #Top10Orders B
+		ON A.OrderMonth = DATEADD(MONTH,1,B.OrderMonth)
+			AND A.OrderType = B.OrderType
+
+ORDER BY 1, 2
+
+DROP TABLE #Orders
+DROP TABLE #Top10Orders
+
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+================================================
+ *UPDATE* [temp_table]
+ *SET* [variables]
+================================================
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
+UPDATE statement allows you to modify a table in place,
+by updating specified fields.
+
+The UPDATE statements can be extremely useful in cases 
+where you need to build on serveral layers of derived 
+logic in which each layer references the previous layer.
+
+It also play a key role in optimizing our queries, 
+especially when they involve joining extremely large 
+data sets together.
+ 
+ >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+CREATE TABLE #SalesOrders
+(
+ SalesOrderID INT,
+ OrderDate DATE,
+ TaxAmt MONEY,
+ Freight MONEY,
+ TotalDue MONEY,
+ TaxFreightPercent FLOAT,
+ TaxFreightBucket VARCHAR(32),
+ OrderAmtBucket VARCHAR(32),
+ OrderCategory VARCHAR(32),
+ OrderSubcategory VARCHAR(32)
+)
+
+INSERT INTO #SalesOrders
+(
+ SalesOrderID,
+ OrderDate,
+ TaxAmt,
+ Freight,
+ TotalDue,
+ OrderCategory
+)
+
+SELECT
+ SalesOrderID,
+ OrderDate,
+ TaxAmt,
+ Freight,
+ TotalDue,
+ OrderCategory = 'Non-holiday Order'
+
+FROM [AdventureWorks2019].[Sales].[SalesOrderHeader]
+
+WHERE YEAR(OrderDate) = 2013
+
+-- Populate our tax rate percentage field.
+-- using the UPDATE statement
+-- to populate multiple variables.
+
+UPDATE #SalesOrders
+SET 
+TaxFreightPercent = (TaxAmt + Freight)/TotalDue,
+OrderAmtBucket = 
+	CASE
+		WHEN TotalDue < 100 THEN 'Small'
+		WHEN TotalDue < 1000 THEN 'Medium'
+		ELSE 'Large'
+	END
+
+-- Update a column by using the result of a previous 
+-- UPDATE statement.
+
+UPDATE #SalesOrders
+SET TaxFreightBucket = 
+	CASE
+		WHEN TaxFreightPercent < 0.1 THEN 'Small'
+		WHEN TaxFreightPercent < 0.2 THEN 'Medium'
+		ELSE 'Large'
+	END
+
+-- We can apply criteria to our update statements
+-- to limit the records we're modifying.
+
+UPDATE #SalesOrders
+SET  OrderCategory = 'Holiday'
+FROM #SalesOrders
+WHERE DATEPART(QUARTER,OrderDate) = 4
+
+
+DROP TABLE #SalesOrders
+
+ <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+================================================
+ *DELETE*
+  FROM {Tmp_Tbl | tbl}
+  WHERE <condition>
+================================================
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
+DELETE statement to purge targetd records from our data.
+
+ >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+--Using DELETE with criteria
+
+INSERT INTO #Sales
+
+SELECT 
+       OrderDate
+	  ,OrderMonth = DATEFROMPARTS(YEAR(OrderDate),MONTH(OrderDate),1)
+      ,TotalDue
+	  ,OrderRank = ROW_NUMBER() OVER(PARTITION BY DATEFROMPARTS(YEAR(OrderDate),MONTH(OrderDate),1) ORDER BY TotalDue DESC)
+
+FROM AdventureWorks2019.Sales.SalesOrderHeader
+
+
+SELECT * FROM #Sales
+
+
+DELETE FROM #Sales WHERE OrderRank > 10
+
+
+
+SELECT
+*
+FROM #Sales
+
+
+DROP TABLE #Sales
+
+ <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+############################################################################
+########## OPTIMIZATION ####################################################
+############################################################################
