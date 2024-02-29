@@ -613,8 +613,6 @@ EXISTS: checks to see if a match according to whatever criteria
 we've set exists in another table, but it doesn't particularly 
 care which record matches or how many matches there are.
 
-
-
 For one-to-one relationships, there really isn't much of
 an advantage to using EXISTS over JOIN.
 However, EXISTS offers some powerful advantages when dealing
@@ -1507,7 +1505,7 @@ DROP TABLE #SalesOrders
 
 DELETE statement to purge targetd records from our data.
 
- >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
 --Using DELETE with criteria
 
@@ -1536,8 +1534,278 @@ FROM #Sales
 
 DROP TABLE #Sales
 
- <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
 ############################################################################
 ########## OPTIMIZATION ####################################################
 ############################################################################
+
+JOINs against or between very large tables (millions rows tables) 
+slow queries down the most.
+
+What can we do about it?
+> Define a filtered dataset as early as possible in our prcess, 
+  so we can JOIN additional tables to a smaller core population
+  that we care about.
+
+> Avoid several JOINs in a single SELECT query, especially those  
+  involving large tables.
+
+> Instead, use UPDATE statements to populate fields in a temp table,
+  one source table at a time since the update statement will just 
+  grab the first matching value it finds without scanning the entire
+  table. 
+
+> Apply indexes to fileds that will be used in JOINs. 
+  Indexes are construct in SQL that makes looking up data in a 
+  table faster by applying indexes to fields in our temp tables
+  that will later be used in joins.
+
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+================================================
+ Using UPDATE statements as an alternative to JOINs
+================================================
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
+Only when a SELECT query with JOINs is taking a long time to run,
+consider the following UPDATE statement to run faster. 
+
+Use only one JOIN statement at time for the INSERT INTO 
+and following UPDATE statements.
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+--Starter Code:
+
+SELECT 
+	   A.SalesOrderID
+	  ,A.OrderDate
+      ,B.ProductID
+      ,B.LineTotal
+	  ,C.[Name] AS ProductName
+	  ,D.[Name] AS ProductSubcategory
+	  ,E.[Name] AS ProductCategory
+
+
+FROM AdventureWorks2019.Sales.SalesOrderHeader A
+	JOIN AdventureWorks2019.Sales.SalesOrderDetail B
+		ON A.SalesOrderID = B.SalesOrderID
+	JOIN AdventureWorks2019.Production.Product C
+		ON B.ProductID = C.ProductID
+	JOIN AdventureWorks2019.Production.ProductSubcategory D
+		ON C.ProductSubcategoryID = D.ProductSubcategoryID
+	JOIN AdventureWorks2019.Production.ProductCategory E
+		ON D.ProductCategoryID = E.ProductCategoryID
+
+WHERE YEAR(A.OrderDate) = 2012 -- limiting condition
+
+
+--Optimized script
+
+
+--1.) Create filtered temp table of sales order header table WHERE year = 2012
+-- Filtered dataset to a smaller core population that we care about.
+
+CREATE TABLE #Sales2012 
+(
+SalesOrderID INT,
+OrderDate DATE
+)
+
+INSERT INTO #Sales2012
+(
+SalesOrderID,
+OrderDate
+)
+
+SELECT
+SalesOrderID,
+OrderDate
+
+FROM AdventureWorks2019.Sales.SalesOrderHeader
+
+WHERE YEAR(OrderDate) = 2012
+
+
+
+
+--2.) Create new temp table after joining in SalesOrderDetail table
+
+CREATE TABLE #ProductsSold2012
+(
+SalesOrderID INT,
+OrderDate DATE,
+LineTotal MONEY,
+ProductID INT,
+ProductName VARCHAR(64),
+-- Fields needed in the temp table so that 
+-- I can join my temp table out to some other table.
+ProductSubcategoryID INT, 
+ProductSubcategory VARCHAR(64),
+-- Fields needed in the temp table so that 
+-- I can join my temp table out to some other table.
+ProductCategoryID INT,
+ProductCategory VARCHAR(64)
+)
+
+INSERT INTO #ProductsSold2012
+(
+SalesOrderID,
+OrderDate,
+LineTotal,
+ProductID
+)
+
+SELECT 
+	   A.SalesOrderID
+	  ,A.OrderDate
+      ,B.LineTotal
+      ,B.ProductID
+
+
+FROM #Sales2012 A
+	JOIN AdventureWorks2019.Sales.SalesOrderDetail B
+		ON A.SalesOrderID = B.SalesOrderID
+
+
+
+--3.) Add product data with UPDATE
+-- Populate the remaining fields by UPDATE statements.
+
+UPDATE A
+SET
+ProductName = B.[Name],
+ProductSubcategoryID = B.ProductSubcategoryID
+
+FROM #ProductsSold2012 A
+	JOIN AdventureWorks2019.Production.Product B
+		ON A.ProductID = B.ProductID
+
+
+
+--4.) Add product subcategory with UPDATE
+
+UPDATE A
+SET
+ProductSubcategory= B.[Name],
+ProductCategoryID = B.ProductCategoryID
+
+FROM #ProductsSold2012 A
+	JOIN AdventureWorks2019.Production.ProductSubcategory B
+		ON A.ProductSubcategoryID = B.ProductSubcategoryID
+
+
+
+
+
+--5.) Add product category data with UPDATE
+
+
+UPDATE A
+SET
+ProductCategory= B.[Name]
+
+FROM #ProductsSold2012 A
+	JOIN AdventureWorks2019.Production.ProductCategory B
+		ON A.ProductCategoryID = B.ProductCategoryID
+
+
+SELECT * FROM #ProductsSold2012
+
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+================================================
+ Using UPDATE statements as an alternative to EXISTS
+================================================
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
+It has the added ability to pull in the actual matching value. 
+
+Using an update, there is no possibility of our data being 
+duplicated. Since, a row will be updated with at 
+most information from a single line item.
+
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+--Select all orders with at least one item over 10K, using EXISTS
+
+/*we have a query that selects all sales orders where there 
+is at least a single associated line item from the sales order 
+detail table with a line total greater than $10,000.*/
+
+SELECT
+       A.SalesOrderID
+      ,A.OrderDate
+      ,A.TotalDue
+
+FROM AdventureWorks2019.Sales.SalesOrderHeader A
+
+WHERE EXISTS (
+	SELECT
+	1
+	FROM AdventureWorks2019.Sales.SalesOrderDetail B
+	WHERE A.SalesOrderID = B.SalesOrderID
+		AND B.LineTotal > 10000
+)
+
+ORDER BY 1
+
+
+
+--5.) Select all orders with at least one item over 10K, including a line item value, using UPDATE
+
+--Create a table with Sales data, including a field for line total:
+CREATE TABLE #Sales
+(
+SalesOrderID INT,
+OrderDate DATE,
+TotalDue MONEY,
+LineTotal MONEY
+)
+
+
+--Insert sales data to temp table
+INSERT INTO #Sales
+(
+SalesOrderID,
+OrderDate,
+TotalDue
+)
+
+SELECT
+SalesOrderID,
+OrderDate,
+TotalDue
+
+FROM AdventureWorks2019.Sales.SalesOrderHeader
+
+
+--Update temp table with > 10K line totals
+/* using an update, there is no possibility of our sales order 
+data being duplicated. A single order will be updated with at 
+most information from a single line item.*/
+
+UPDATE A
+SET LineTotal = B.LineTotal
+
+FROM #Sales A
+	JOIN AdventureWorks2019.Sales.SalesOrderDetail B
+		ON A.SalesOrderID = B.SalesOrderID
+
+-- Apply criteria to our update
+-- Only sales orders that have an associated line item
+-- with a line total greater than $10000 should be updated.
+
+WHERE B.LineTotal > 10000
+
+SELECT * FROM #Sales
+
+--Recreate EXISTS:
+
+SELECT * FROM #Sales WHERE LineTotal IS NOT NULL
+
+
+--Recreate NOT EXISTS:
+
+SELECT * FROM #Sales WHERE LineTotal IS NULL
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
