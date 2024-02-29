@@ -1809,3 +1809,494 @@ SELECT * FROM #Sales WHERE LineTotal IS NOT NULL
 
 SELECT * FROM #Sales WHERE LineTotal IS NULL
 <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+================================================
+ OPTIMIZING with INDEXES:
+ **CREATE CLUSTERED INDEX [name] ON table(column)**
+  **CREATE NONCLUSTERED INDEX [name] ON table(column)**
+================================================
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
+Indexes are one of the main advantages of temp tables versus
+CTEs and subqueries since temp tables can be indexed and 
+CTEs and subqueries cannot. 
+
+WHAT ARE INDEXES?
+> I ndexes are database objects that can make queries against your
+  tables faster.
+
+> They do this by sorting the data in the fields they apply to
+  either in the table itself, or in a separate data structure.
+
+> This sorting allows t he database engine to locate records within
+  a table without having to search through the table row by row.
+
+> There are two types of indexes clustered and non clustered.
+
+
+CLUSTERED INDEXES:
+> The rows of a table with a clustered index are physically sorted
+  based on the field or fields the index is applied to.
+
+> A table with a primary key is given a clustered index (based on
+  the primary key field) by default
+
+> Most tables should have at least a clustered index, as queries
+  against tables with a clustered index generally tend to be faster.
+
+> A table may only have one clustered index.
+
+	CLUSTERED INDEXES - Strategies:
+	> A pply a clustered index to whatever field or fields are most
+	  likely to be used in a join against the table.
+
+	> Ideally this field (or combination of fields) should also be the
+	  one that most uniquely defines a record in the table.
+
+	> Whatever field would be a good candidate for a primary key of
+	  a table, is usually also a good candidate for a clustered index
+
+
+NON-CLUSTERED INDEXES:
+> A table may have many non clustered indexes.
+
+> Non clustered indexes do not physically sort the data in a table
+  like clustered indexes do.
+
+> The sorted order of the field or fields non clustered indexes
+  apply to is stored in an external data structure, which works like
+  a kind of phone book.
+
+	NON-CLUSTERED INDEXES: Strategies
+	> If you will be joining your table on fields besides the one
+      “covered” by the clustered index, consider non clustered
+      indexes on those fields.
+
+	> You can add as many non clustered indexes as we like, but
+      should be judicious in doing so.
+
+    > Fields covered by a non clustered index should still have a high
+	  level of uniqueness.
+
+
+INDEXES: GENERAL APPROACH
+> It’s how our table utilized in joins that should drive our use and
+  design of indexes.
+
+> You should generally add a clustered index first, and then layer
+  in non clustered indexes as needed to “cover” additional fields
+  used in joins against our table.
+
+> Indexes take up memory in the database, so only add them
+  when they are really needed.
+
+> They also make inserts to tables take longer, so you should
+  generally add indexes AFTER data has been inserted to the table.
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+CREATE TABLE #Sales2012 
+(
+SalesOrderID INT,
+OrderDate DATE
+)
+
+INSERT INTO #Sales2012
+(
+SalesOrderID,
+OrderDate
+)
+
+SELECT
+SalesOrderID,
+OrderDate
+
+FROM AdventureWorks2019.Sales.SalesOrderHeader
+
+WHERE YEAR(OrderDate) = 2012
+
+
+--1.) Add clustered index to #Sales2012
+-- You should add indexes after inserting the data
+-- You should add indexes on columns you be joining on
+
+CREATE CLUSTERED INDEX Sales2012_idx ON #Sales2012(SalesOrderID)
+
+
+--2.) Add sales order detail ID
+
+CREATE TABLE #ProductsSold2012
+(
+SalesOrderID INT,
+SalesOrderDetailID INT, --Add for clustered index (uniqueness)
+OrderDate DATE,
+LineTotal MONEY,
+ProductID INT,
+ProductName VARCHAR(64),
+ProductSubcategoryID INT,
+ProductSubcategory VARCHAR(64),
+ProductCategoryID INT,
+ProductCategory VARCHAR(64)
+)
+
+INSERT INTO #ProductsSold2012
+(
+SalesOrderID,
+SalesOrderDetailID,
+OrderDate,
+LineTotal,
+ProductID
+)
+
+SELECT 
+	   A.SalesOrderID
+	  ,B.SalesOrderDetailID
+	  ,A.OrderDate
+      ,B.LineTotal
+      ,B.ProductID
+
+FROM #Sales2012 A
+	JOIN AdventureWorks2019.Sales.SalesOrderDetail B
+		ON A.SalesOrderID = B.SalesOrderID
+
+
+--3.) Add clustered index on SalesOrderDetailID
+-- after we inserted data to our table
+
+CREATE CLUSTERED INDEX ProductsSold2012_idx ON #ProductsSold2012(SalesOrderDetailID)
+
+
+--4.) Add nonclustered index on product Id
+-- Since it will be used later to JOIN table 
+
+CREATE NONCLUSTERED INDEX ProductsSold2012_idx2 ON #ProductsSold2012(ProductID)
+
+
+
+--3.) Add product data with UPDATE
+
+
+UPDATE A
+SET
+ProductName = B.[Name],
+ProductSubcategoryID = B.ProductSubcategoryID
+
+FROM #ProductsSold2012 A
+	JOIN AdventureWorks2019.Production.Product B
+		ON A.ProductID = B.ProductID
+
+
+--4.) Add nonclustered index on product subcategory ID
+
+CREATE NONCLUSTERED INDEX ProductsSold2012_idx3 ON #ProductsSold2012(ProductSubcategoryID)
+
+
+
+UPDATE A
+SET
+ProductSubcategory= B.[Name],
+ProductCategoryID = B.ProductCategoryID
+
+FROM #ProductsSold2012 A
+	JOIN AdventureWorks2019.Production.ProductSubcategory B
+		ON A.ProductSubcategoryID = B.ProductSubcategoryID
+
+
+--5) Add nonclustered index on category Id
+
+CREATE NONCLUSTERED INDEX ProductsSold2012_idx4 ON #ProductsSold2012(ProductCategoryID)
+
+
+
+UPDATE A
+SET
+ProductCategory= B.[Name]
+
+FROM #ProductsSold2012 A
+	JOIN AdventureWorks2019.Production.ProductCategory B
+		ON A.ProductCategoryID = B.ProductCategoryID
+
+
+SELECT * FROM #ProductsSold2012
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+================================================
+ LOOKUP TABLES
+ ** CREATE TABLE [database_name.schema_name.table_name]
+================================================
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
+Make something permanent with your knowledge of temp table
+
+DATABASE SYNTAX:
+DDL (Data Definition Language) commands: pertain to the definition and
+	structure of our database objects (TABLES), and include CREATE, DROP,
+	TRUNCATE. 
+DML (Data Manipulation Language) commands: involve manipulating data in
+	existing objects (TABLES), and include INSERT, UPDATE, and DELETE. 
+
+BENEFITS OF LOOKUP TABLES:
+> Eliminate duplicated effort by locating frequently used attributes 
+  in one place (E.G.: CALENDAR TABLE - such a table will have one row for 
+  every day in a given time period, which usually encompasses all
+  the days that might possibly be in scope for the reporting and 
+  analytics that team produces.
+  More importantly, the table will also have a wide range of attributes
+  that parse, describe, categorize and otherwise provide useful 
+  information about each date in the table. For example, whether a date
+  is a weekend, a holiday, what day of the month it is, etc...).
+
+> Promote data integrity by consolidating a "single version of the truth"
+  in a central location. 
+
+The syntax for creating a permanent table is nearly identical to that, 
+for creating a temporary table.
+The only practical difference is that instead of including a pound sign 
+before the name of our table, we instead need to specify the database 
+and the schema that we will be creating the table on since that 
+database and schema will be its permanent home.
+
+SCHEMA:  most of the tables in our database are assigned to 
+ a schema that organizes related tables in the database in a 
+ kind of virtual database folder. 
+ The 'dbo' schema is the default schema.
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+--Create Permanent Calendar Lookup Table
+
+CREATE TABLE Adventureworks2019.dbo.Calendar
+(
+DateValue DATE, -- unique identifier
+DayOfWeekNumber INT,
+DayOfWeekName VARCHAR(32),
+DayOfMonthNumber INT,
+MonthNumber INT,
+YearNumber INT,
+WeekendFlag TINYINT,
+HolidayFlag TINYINT
+);
+
+
+--Insert values manually row by row
+
+INSERT INTO Adventureworks2019.dbo.Calendar
+(
+DateValue,
+DayOfWeekNumber,
+DayOfWeekName,
+DayOfMonthNumber,
+MonthNumber,
+YearNumber,
+WeekendFlag,
+HolidayFlag
+)
+
+VALUES
+(CAST('01-01-2011' AS DATE),7,'Saturday',1,1,2011,1,1),
+(CAST('01-02-2011' AS DATE),1,'Sunday',2,1,2011,1,0);
+
+
+SELECT * FROM Adventureworks2019.dbo.Calendar;
+
+
+--Truncate manually inserted values
+
+
+TRUNCATE TABLE Adventureworks2019.dbo.Calendar;
+
+
+
+
+--Insert dates to table with recursive CTE
+
+WITH Dates AS
+(
+SELECT
+-- (1) Define an ANCOR MEMBER.
+ CAST('01-01-2011' AS DATE) AS MyDate
+
+UNION ALL
+-- (2) RECURSIVE MEMBER
+SELECT
+DATEADD(DAY, 1, MyDate)
+FROM Dates
+-- (3) TERMINATION CONDITION
+WHERE MyDate < CAST('12-31-2030' AS DATE)
+)
+
+-- Populate an existing table using RECURSIVE CTEs
+INSERT INTO AdventureWorks2019.dbo.Calendar
+(
+DateValue
+)
+--
+SELECT
+MyDate
+
+FROM Dates
+OPTION (MAXRECURSION 10000);
+
+SELECT * FROM AdventureWorks2019.dbo.Calendar;
+
+
+--Update NULL fields in Calendar table
+
+UPDATE AdventureWorks2019.dbo.Calendar
+SET
+DayOfWeekNumber = DATEPART(WEEKDAY,DateValue),
+DayOfWeekName = FORMAT(DateValue,'dddd'),
+DayOfMonthNumber = DAY(DateValue),
+MonthNumber = MONTH(DateValue),
+YearNumber = YEAR(DateValue);
+
+
+SELECT * FROM AdventureWorks2019.dbo.Calendar;
+
+
+
+UPDATE AdventureWorks2019.dbo.Calendar
+SET
+WeekendFlag = 
+	CASE
+		WHEN DayOfWeekNumber IN(1, 7) THEN 1
+		ELSE 0
+	END
+;
+
+
+SELECT * FROM AdventureWorks2019.dbo.Calendar;
+
+
+-- manually establish holidays that the company cares about
+UPDATE AdventureWorks2019.dbo.Calendar
+SET
+HolidayFlag =
+	CASE
+		WHEN DayOfMonthNumber = 1 AND MonthNumber = 1 THEN 1
+		ELSE 0
+	END;
+
+SELECT * FROM AdventureWorks2019.dbo.Calendar;
+
+
+--Use Calendar table in a query:
+-- Pull a list of all sales orders that were made on a
+-- weekend by using the just created Calendar Lookup Table
+-- instead of using some date functions.
+
+
+SELECT
+A.*
+
+FROM AdventureWorks2019.Sales.SalesOrderHeader A
+	JOIN AdventureWorks2019.dbo.Calendar B
+		ON A.OrderDate = B.DateValue
+
+WHERE B.WeekendFlag = 1;
+
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+================================================
+ **CREATE VIEW {schema}.vw_{view_name}** AS
+================================================
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
+VIEWS are database features or objects encapsulate a 
+complex logic behind a friendly intuitive interace.
+
+A VIEW is essentially a virutal table based on the 
+result set of a SQL query which e.g. takes into account
+fields from one or more real tables in the database,
+possibly combined with derived columns. 
+
+FUNCATIONALITIES OF VIEWS IS LIKE TABLE:
+You can also add criteria to queries against views.
+You can sort the output of queries against views and 
+even join to other tables and so on.
+
+WHY ARE VIEWS USEFUL?
+> Simplification: Views can simplify the use of a 
+  database, especially from an analyst's perspective, 
+  by joining multiple tables and combining different 
+  fields from those tables, then presenting them as a 
+  single table.
+
+> Consistent Logic: If there's a specific calculation
+  or transformation you're doing on your data regularly, 
+  you can embed that logic in a view.
+  This ensures consistency as you don't have to rewrite 
+  that logic every time you need it.
+
+> Query Abstraction: So if changes are made to your 
+  database, like, for example, changing the structure 
+  of various tables, you can modify the queries underlying 
+  your views to make sure they keep the same structure, 
+  which means that any applications or reports that rely 
+  on those views might not need to change.
+
+SCHEMA:  most of the tables in our database are assigned to 
+a schema that organizes related tables in the database in a 
+kind of virtual database folder.
+
+N.B.: Views or functions (e.g.: ORDER BY) are not allowed on 
+      temporary tables.
+
+	  Temporary tables have a limited scope and lifespan; 
+	  they exist only for the duration of a user session or 
+	  the scope of the routine they were created in. 
+	  Because of this transient nature, they cannot be used 
+	  as part of a view, which should have a more permanent
+	  and consistent structure.
+
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+--Creating the view:
+
+CREATE VIEW Sales.vw_SalesRolling3Days AS
+
+SELECT
+    OrderDate,
+    TotalDue,
+	SalesLast3Days = SUM(TotalDue) OVER(ORDER BY OrderDate ROWS BETWEEN 2 PRECEDING AND CURRENT ROW)
+FROM (
+	SELECT
+		OrderDate,
+		TotalDue = SUM(TotalDue)
+	FROM
+		Sales.SalesOrderHeader
+
+	WHERE YEAR(OrderDate) = 2014
+
+	GROUP BY
+		OrderDate
+) X;
+
+
+--Querying against the view:
+-- It is the same as querying a table
+
+SELECT
+	OrderDate
+   ,TotalDue
+   ,SalesLast3Days -- derived with the query encapsulated by the Sales.vw_SalesRolling3Days view
+   -- Derived field agaist the view
+   ,[% Rolling 3 Days Sales] = FORMAT(TotalDue / SalesLast3Days, 'p')
+
+FROM AdventureWorks2019.Sales.vw_SalesRolling3Days;
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+################################################################
+########## Programming SQL #####################################
+################################################################
+
+SQL iss known as a set based language, which basically means 
+it's optimized for the kinds of operations we perform on tables 
+in a database.
+
+However, it does have some features that resemble what you'd 
+see in a more traditional programming  language like Python or 
+JavaScript.
