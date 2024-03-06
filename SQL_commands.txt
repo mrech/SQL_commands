@@ -2293,10 +2293,357 @@ FROM AdventureWorks2019.Sales.vw_SalesRolling3Days;
 ########## Programming SQL #####################################
 ################################################################
 
-SQL iss known as a set based language, which basically means 
+SQL is known as a set based language, which basically means 
 it's optimized for the kinds of operations we perform on tables 
 in a database.
 
 However, it does have some features that resemble what you'd 
-see in a more traditional programming  language like Python or 
+see in a more traditional programming language like Python or 
 JavaScript.
+
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+================================================
+ VARIABLES: DECLEAR @{VarName} TYPE = int/{embedded scalar subqueries}
+================================================
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
+All variables used in a session needs to run within the
+same selection. 
+
+Variables allow us to break up this somewhat complicated operation 
+into discrete and descriptively named steps that make it easy for 
+someone to follow what's going on?
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+--Embedded scalar subquery example
+
+SELECT 
+	   ProductID
+      ,[Name]
+      ,StandardCost
+      ,ListPrice
+	  ,AvgListPrice = (SELECT AVG(ListPrice) FROM AdventureWorks2019.Production.Product)
+	  ,AvgListPriceDiff = ListPrice - (SELECT AVG(ListPrice) FROM AdventureWorks2019.Production.Product)
+
+FROM AdventureWorks2019.Production.Product
+
+WHERE ListPrice > (SELECT AVG(ListPrice) FROM AdventureWorks2019.Production.Product)
+
+ORDER BY ListPrice ASC
+
+
+
+--Rewritten with variables:
+-- Much cleaner query, easier for another analyst to understand and for us to maintain.
+
+DECLARE @AvgPrice MONEY = (SELECT AVG(ListPrice) FROM AdventureWorks2019.Production.Product)
+
+SELECT 
+	   ProductID
+      ,[Name]
+      ,StandardCost
+      ,ListPrice
+	  ,AvgListPrice = @AvgPrice
+	  ,AvgListPriceDiff = ListPrice - @AvgPrice
+
+FROM AdventureWorks2019.Production.Product
+
+WHERE ListPrice > @AvgPrice
+
+ORDER BY ListPrice ASC
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+-- Variables for complex date math:
+-- Get the beginning of the current month and
+-- the beginning and the end of the previous month
+
+DECLARE @Today DATE = CAST(GETDATE() AS DATE)
+
+SELECT @Today
+
+--Declare Beginning Of Month
+--For day we hard code the number 1 to get the first day of the current month
+DECLARE @BOM DATE = DATEFROMPARTS(YEAR(@Today),MONTH(@Today),1)
+
+SELECT @BOM 
+
+-- So with our beginning of month date in hand, 
+-- calculating the first and last days of the previous month
+-- is actually going to be pretty straightforward 
+-- using the date add function.
+
+-- Declare Previous End Of the Month
+DECLARE @PrevEOM DATE = DATEADD(DAY,-1,@BOM)
+SELECT @PrevEOM
+
+-- Declare Previous Beginning Of the Month
+DECLARE @PrevBOM DATE = DATEADD(MONTH,-1,@BOM)
+SELECT @PrevBOM
+
+--let's use our date variables to simply select all records from our 
+-- calendar table where the date is within our previous month date range.
+
+SELECT
+*
+FROM AdventureWorks2019.dbo.Calendar
+WHERE DateValue BETWEEN @PrevBOM AND @PrevEOM
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+/* Variables - Exercise 2 */
+
+/*
+Let's say your company pays once per month, on the 15th.
+
+If it's already the 15th of the current month (or later), 
+the previous pay period will run from the 15th of the previous month, 
+to the 14th of the current month.
+
+If on the other hand it's not yet the 15th of the current month, 
+the previous pay period will run from the 15th two months ago to 
+the 14th on the previous month.
+
+
+Set up variables defining the beginning and end of the previous pay 
+period in this scenario. Select the variables to ensure they are 
+working properly.
+
+
+Hint: In addition to incorporating date logic, you will probably also
+need to use CASE statements in one of your variable definitions.
+*/
+
+-- DECLARE THE NEEDED VARIABLES 
+DECLARE @Today DATE = CAST(GETDATE() AS DATE)
+SELECT @Today
+
+DECLARE @CurrentMonth14 DATE = DATEFROMPARTS(YEAR(@Today),MONTH(@Today),14)
+SELECT @CurrentMonth14
+
+-- DECLARE @PreviousMonth15 DATE = DATEADD(DAY, 1, DATEADD(MONTH,-1,@CurrentMonth14))
+-- SELECT @PreviousMonth15
+
+-- DECLARE @PreviousMonth14 DATE = DATEADD(MONTH,-1,@CurrentMonth14)
+-- SELECT @PreviousMonth14
+
+-- DECLARE @Previous2Months15 DATE = DATEADD(DAY, 1, DATEADD(MONTH,-2,@CurrentMonth14))
+-- SELECT @Previous2Months15
+
+-- use OF the CASE statement within subqueries
+DECLARE @EndPaymentPeriod DATE = CASE
+								   WHEN DAY(@Today) > 15 THEN @CurrentMonth14
+								   ELSE DATEADD(MONTH, -1, @CurrentMonth14)
+								 END
+SELECT @EndPaymentPeriod
+
+DECLARE @StartPaymentPeriod DATE = DATEADD(DAY, 1, DATEADD(MONTH, -1, @EndPaymentPeriod))
+SELECT @StartPaymentPeriod
+
+SELECT *
+FROM AdventureWorks2019.dbo.Calendar
+WHERE DateValue BETWEEN @StartPaymentPeriod 
+		AND @EndPaymentPeriod
+
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+================================================
+ USER DEFINED SCALAR FUNCTIONS
+ **CREATE FUNCTION {schema}.{user_function_name()}**
+================================================
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
+In cases where SQL is built in toolbox is empty and it's likely that other 
+people will need to solve the same problem we are dealing with.
+A user defined function can be the way to go.
+
+We can with user defined functions, we can define blocks of logic that live
+on our database server and work just like many other functions we've already used.
+
+Then, as when we created lookup tables, we need to specify the
+database and the schema. The function will live on just like a permanent table.
+
+Our user defined function will take up permanent residence on our database server, 
+which is how it will be available for us and others to use.
+
+To do this, we have to make sure that our session understands that any code 
+we write in it applies to the database, we want that function to live on.
+And the easiest way to do that is to make sure that the selected database is 
+the one that you're interested in operating against.
+
+We can find it on the Object Explorer:
+> Databases/{Database_Name}/Programmability/Functions/Scalar-valued Functions
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+--Code to create user defined function:
+/*
+The following is not needed if the databse it is already
+selected in the drop-down window. 
+
+USE AdventureWorks 2019
+GO
+
+*/
+
+-- use the default "dbo" schema
+-- "ufn": user function name
+CREATE FUNCTION dbo.ufnCurrentDate()
+
+-- define the datatype of the value the function will return
+RETURNS DATE
+
+-- syntax templete
+AS
+
+BEGIN -- start of block code
+	-- RETURN keyword: today function without timestamp
+	RETURN CAST(GETDATE() AS DATE)
+
+END -- end of block code
+
+
+--Query that calls user defined function
+
+SELECT
+	   SalesOrderID
+      ,OrderDate
+      ,DueDate
+      ,ShipDate
+	  ,Today = dbo.ufnCurrentDate()
+
+FROM AdventureWorks2019.Sales.SalesOrderHeader A
+
+WHERE YEAR(A.OrderDate) = 2011
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+================================================
+ USER DEFINED SCALAR FUNCTIONS WITH PARAMETERS
+  **CREATE FUNCTION {schema}.{user_function_name(@parameters TYPE)}**
+================================================
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
+Parameters are part of the function definition itself and operate 
+as kind of placeholders that accept user input that is then used in 
+the logic of the function.
+
+Arguments, on the other hand, are the actual values supplied to these 
+parameters when someone calls the function.
+The parameters are implemented in our function as variables
+
+Note that the variables that we define between the parentheses of a
+user defined function do not have to be declared, nor does their value 
+have to be explicitly set. Instead, these variables are passed in by whatever ù
+code calls the function.
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+--Correlated Subquery Example:
+
+SELECT
+	   SalesOrderID
+      ,OrderDate
+      ,DueDate
+      ,ShipDate
+	  ,ElapsedBusinessDays = (
+	    -- Correlated Sub-queries
+		SELECT
+		COUNT(*)
+		FROM AdventureWorks2019.dbo.Calendar B
+		WHERE B.DateValue BETWEEN A.OrderDate AND A.ShipDate
+			AND B.WeekendFlag = 0
+			AND B.HolidayFlag = 0
+	  ) - 1
+
+FROM AdventureWorks2019.Sales.SalesOrderHeader A
+
+WHERE YEAR(A.OrderDate) = 2011;
+
+
+
+--Rewriting as a fucntion, with variables:
+/* Not needed if the database is already selected in the dropdown menu.
+
+USE AdventureWorks2019
+GO
+
+*/
+
+CREATE FUNCTION dbo.ufnElapsedBusinessDays(@StartDate DATE, @EndDate DATE)
+
+RETURNS INT
+
+AS  
+
+BEGIN
+
+	RETURN 
+		(
+			SELECT
+				COUNT(*)
+			FROM AdventureWorks2019.dbo.Calendar
+			-- Since it is not a correlated query we don't need the
+			-- alias any longer.
+			WHERE DateValue BETWEEN @StartDate AND @EndDate
+				AND WeekendFlag = 0
+				AND HolidayFlag = 0
+		)	- 1
+
+END;
+
+
+
+
+--Using the function in a query
+
+SELECT
+	   SalesOrderID
+      ,OrderDate
+      ,DueDate
+      ,ShipDate
+	  ,ElapsedBusinessDays = dbo.ufnElapsedBusinessDays(OrderDate,ShipDate)
+
+FROM AdventureWorks2019.Sales.SalesOrderHeader
+
+WHERE YEAR(OrderDate) = 2011;
+
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+/*User Defined Functions - Exercises*/
+
+/*Exercise 1
+
+Create a user-defined function that returns the percent 
+that one number is of another.
+
+For example, if the first argument is 8 and the second 
+argument is 10, the function should return the string "80.00%".
+
+The function should solve the "integer division" problem by 
+allowing you to divide an integer by another integer, and yet 
+get an accurate decimal result.
+
+*/
+
+CREATE FUNCTION dbo.ufnNumbersPtc(@Num INT, @Den INT)
+-- ALTER FUNCTION dbo.ufnNumbersPtc(@Num INT, @Den INT)
+
+RETURNS VARCHAR(10)
+
+AS  
+
+BEGIN
+
+	RETURN FORMAT((@Num*0.1)/@Den, 'P')
+	-- alternative 
+	-- DECLARE @Decimal FLOAT  = (@Numerator * 1.0) / @Denominator
+    -- RETURN FORMAT(@Decimal, 'P')
+
+
+END;
+
+-- SELECT dbo.ufnNumbersPtc(8, 10)
+
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
