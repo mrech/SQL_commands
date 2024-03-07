@@ -2647,3 +2647,282 @@ END;
 -- SELECT dbo.ufnNumbersPtc(8, 10)
 
 <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+================================================
+ TABLE-VALUED FUNCTIONS: Parameterize-Views
+**CREATE FUNCTION {schema}.{user_function_name(@parameters TYPE)}**
+** RETURNS TABLE**
+================================================
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
+Why are Table-Valued Functions useful?
+
+> MODULARITY & REUSABILITY: encapsulate logic
+> MAINTENANCE: if a particular piece of logic encapsulated in a TVF needs to change,
+  you only have to change it in one place. This is as opposed to the nightmare of 
+  having 50 different analyst queries, all deriving some piece
+  of logic, and then all of those queries needing to be changed when that business 
+  logic inevitably changes.
+> PARAMETERIZATION: So views are fantastic for saving a static query 
+  that you can treat as a table elsewhere in your SQL code.
+  However, they are static.
+  But TVs add a dynamic element to this concept by allowing parameters.
+  So if you need a view that can alter its output based on user input, 
+  table valued functions are the way to go.
+
+We can find it on the Object Explorer:
+> Databases/{Database_Name}/Programmability/Functions/Table-valued Functions
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+--Creating the TVF to fetch products based on their colour:
+
+CREATE FUNCTION Production.ufn_ProductsByColor(@Color NVARCHAR(15))
+
+RETURNS TABLE
+
+AS
+
+RETURN
+(
+	SELECT
+		 Name
+		,ProductNumber
+		,Color
+	FROM Production.Product
+
+	WHERE LOWER(Color) = LOWER(@Color)
+)
+
+
+--Calling the TVF:
+
+SELECT
+*
+FROM Production.ufn_ProductsByColor('RED')
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+================================================
+ STORED PROCEDURES
+ **CREATE PROCEDURE {Schema}.{Name}**
+================================================
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
+Stored procedures are database objects that provide almost unlimited
+flexibility in allowing us to execute single or multiple blocks of code 
+that do anything from manipulating tables in our database to returning
+the output of whole select queries or both.
+
+At their most basic stored procedures essentially allow us to save queries
+to our database server and then execute them on demand by invoking the 
+stored procedure.
+
+Parameterized stored procedures give us a practically infinite range of 
+options when it comes to customizing a data set or a database process 
+based on user input.
+
+Such storage procedures in addition to having great utility for data analysts.
+
+Are also common interfaces between applications and databases rather 
+than directly interacting with database tables, an application can 
+instead call on stored procedures to handle the heavy lifting on
+the database side and then simply return whatever data the application 
+needs from the stored procedure.
+
+But for this course, I'm going to focus more on using stored procedures as a way 
+to generate dynamic, user driven data extracts and reports.
+
+We can find it on the Object Explorer:
+> Databases/{Database_Name}/Programmability/Stored Procedures
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+--Starter query:
+
+	SELECT
+		*
+	FROM (
+		SELECT 
+			ProductName = B.[Name],
+			LineTotalSum = SUM(A.LineTotal),
+			LineTotalSumRank = DENSE_RANK() OVER(ORDER BY SUM(A.LineTotal) DESC)
+
+		FROM AdventureWorks2019.Sales.SalesOrderDetail A
+			JOIN AdventureWorks2019.Production.Product B
+				ON A.ProductID = B.ProductID
+
+		GROUP BY
+			B.[Name]
+		) X
+
+	WHERE LineTotalSumRank <= 10
+
+
+
+--Basic (non-dynamic) stored procedure
+
+CREATE PROCEDURE dbo.OrdersReport
+
+AS
+
+BEGIN
+	SELECT
+		*
+	FROM (
+		SELECT 
+			ProductName = B.[Name],
+			LineTotalSum = SUM(A.LineTotal),
+			LineTotalSumRank = DENSE_RANK() OVER(ORDER BY SUM(A.LineTotal) DESC)
+
+		FROM AdventureWorks2019.Sales.SalesOrderDetail A
+			JOIN AdventureWorks2019.Production.Product B
+				ON A.ProductID = B.ProductID
+
+		GROUP BY
+			B.[Name]
+		) X
+
+	WHERE LineTotalSumRank <= 10
+END
+
+
+
+--Execute stored procedure
+
+EXEC dbo.OrdersReport
+
+
+
+
+
+--Modify stored procedure to accept parameter
+-- the ALTER keyword is a data definition language
+-- command that allows us to alter the definition 
+-- of a database object like a table, or in this
+-- case, a stored procedure. 
+
+ALTER PROCEDURE dbo.OrdersReport(@TopN INT)
+
+AS
+
+BEGIN
+	SELECT
+		*
+	FROM (
+		SELECT 
+			ProductName = B.[Name],
+			LineTotalSum = SUM(A.LineTotal),
+			LineTotalSumRank = DENSE_RANK() OVER(ORDER BY SUM(A.LineTotal) DESC)
+
+		FROM AdventureWorks2019.Sales.SalesOrderDetail A
+			JOIN AdventureWorks2019.Production.Product B
+				ON A.ProductID = B.ProductID
+
+		GROUP BY
+			B.[Name]
+		) X
+
+	WHERE LineTotalSumRank <= @TopN
+END
+
+
+
+--Execute stored procedure
+-- Parameters are not nested within (). 
+-- Only listed using to separate one from another. 
+EXEC dbo.OrdersReport 20
+
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+================================================
+ CONTROL FLOW WITH **IF** STATEMENTS
+================================================
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
+In fact, if statements in general are quite similar to case statements, 
+with the main difference being that case statements can only return values 
+in a select query, while if statements can actually execute whole query 
+outputs and execute side effects on the database as well.
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+--IF Statement - basic example
+
+-- Declare a variable
+DECLARE @MyInput INT = 1
+-- SET @MyInput = 2
+
+IF @MyInput > 1
+	BEGIN
+		SELECT 'Hello World'
+	END
+ELSE
+	BEGIN
+		SELECT 'Farewell For Now!'
+	END
+
+
+
+--IF Statement - stored procedure example
+
+ALTER PROCEDURE dbo.OrdersReport(@TopN INT, @OrderType INT)
+
+AS
+
+BEGIN
+	-- Sales orders
+	IF @OrderType = 1
+		BEGIN
+			SELECT
+				*
+			FROM (
+				SELECT 
+					ProductName = B.[Name],
+					LineTotalSum = SUM(A.LineTotal),
+					LineTotalSumRank = DENSE_RANK() OVER(ORDER BY SUM(A.LineTotal) DESC)
+
+				FROM AdventureWorks2019.Sales.SalesOrderDetail A
+					JOIN AdventureWorks2019.Production.Product B
+						ON A.ProductID = B.ProductID
+
+				GROUP BY
+					B.[Name]
+				) X
+
+			WHERE LineTotalSumRank <= @TopN
+		END
+    -- Purchase orders
+	ELSE
+		BEGIN
+			SELECT
+				*
+			FROM (
+				SELECT 
+					ProductName = B.[Name],
+					LineTotalSum = SUM(A.LineTotal),
+					LineTotalSumRank = DENSE_RANK() OVER(ORDER BY SUM(A.LineTotal) DESC)
+
+				FROM AdventureWorks2019.Purchasing.PurchaseOrderDetail A
+					JOIN AdventureWorks2019.Production.Product B
+						ON A.ProductID = B.ProductID
+
+				GROUP BY
+					B.[Name]
+				) X
+
+			WHERE LineTotalSumRank <= @TopN
+		END
+END
+
+
+
+--Calling the modified stored procedure
+
+
+EXEC dbo.OrdersReport 20,1
+
+EXEC dbo.OrdersReport 15,2
+
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
