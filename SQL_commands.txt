@@ -1,3 +1,6 @@
+Over-reaching DRY pinciple: Don't Repeat Yourself.
+Streamline your code. 
+
 ###########################################################################
 ########## ADVANCED SQL COMMANDS ##########################################
 ###########################################################################
@@ -2924,5 +2927,267 @@ END
 EXEC dbo.OrdersReport 20,1
 
 EXEC dbo.OrdersReport 15,2
+
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+================================================
+ USING MULTIPLE **IF** STATEMENTS
+================================================
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
+Our first step here is to convert the ELSE block right here to 
+another if statement and make sure that the if criteria for our two 
+blocks are mutually exclusive.
+
+We can add as many if blocks as we want, generating unlimited 
+flexibility that if statements when combined with stored
+procedures give us.
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+--Multiple IF statement example
+
+ALTER PROCEDURE dbo.OrdersReport(@TopN INT, @OrderType INT)
+-- CREATE PROCEDURE dbo.OrdersReport(@TopN INT, @OrderType INT)
+
+AS
+
+BEGIN
+	-- Top N products by Sales Order
+	IF @OrderType = 1
+		BEGIN
+			SELECT
+				*
+			FROM (
+				SELECT 
+					ProductName = B.[Name],
+					LineTotalSum = SUM(A.LineTotal),
+					LineTotalSumRank = DENSE_RANK() OVER(ORDER BY SUM(A.LineTotal) DESC)
+
+				FROM AdventureWorks2019.Sales.SalesOrderDetail A
+					JOIN AdventureWorks2019.Production.Product B
+						ON A.ProductID = B.ProductID
+
+				GROUP BY
+					B.[Name]
+				) X
+
+			WHERE LineTotalSumRank <= @TopN
+		END
+	-- Top N products by Purchase Order
+	IF @OrderType = 2
+		BEGIN
+				SELECT
+					*
+				FROM(
+					SELECT 
+						ProductName = B.[Name],
+						LineTotalSum = SUM(A.LineTotal),
+						LineTotalSumRank = DENSE_RANK() OVER(ORDER BY SUM(A.LineTotal) DESC)
+
+					FROM AdventureWorks2019.Purchasing.PurchaseOrderDetail A
+						JOIN AdventureWorks2019.Production.Product B
+							ON A.ProductID = B.ProductID
+
+					GROUP BY
+						B.[Name]
+					) X
+
+				WHERE LineTotalSumRank <= @TopN
+			END
+	-- Top N products by Sales and Purchase Orders combined
+	IF @OrderType = 3
+		BEGIN				
+			SELECT
+				ProductID,
+				LineTotal
+
+			-- Select above into a Tmp Table
+			INTO #AllOrders
+
+			FROM AdventureWorks2019.Sales.SalesOrderDetail
+			-- SELECT * FROM #AllOrders
+
+			-- Insert info from PurchaseOrderDetail into the same tmp table
+			INSERT INTO #AllOrders
+
+			SELECT
+				ProductID,
+				LineTotal
+
+			FROM AdventureWorks2019.Purchasing.PurchaseOrderDetail
+			-- SELECT * FROM #AllOrders
+			-- ORDER BY ProductID
+
+			SELECT
+				*
+			FROM (
+				SELECT 
+					ProductName = B.[Name],
+					LineTotalSum = SUM(A.LineTotal),
+					LineTotalSumRank = DENSE_RANK() OVER(ORDER BY SUM(A.LineTotal) DESC)
+
+				FROM #AllOrders A
+					JOIN AdventureWorks2019.Production.Product B
+						ON A.ProductID = B.ProductID
+
+				GROUP BY
+					B.[Name]
+				) X
+
+			WHERE LineTotalSumRank <= @TopN
+
+			DROP TABLE #AllOrders
+		END
+END
+
+
+
+--Call modified stored procedure
+
+
+EXEC dbo.OrdersReport 20,1
+
+EXEC dbo.OrdersReport 15,2
+
+EXEC dbo.OrdersReport 25,3
+
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+================================================
+ DYNAMIC SQL
+================================================
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
+While there's nothing technically wrong with a long series of if blocks
+in multiple if statement, you definitely run the risk
+of repeating similar code.
+
+So if at some point we wanted to change the structure of our output
+in some fundamental way, we'd probably end up having to make a similar 
+change in most, if not all, of the if blocks.
+
+DYNAMIC SQL: involves our SQL code, actually constructing more SQL 
+code at runtime, which is to say when the code is actually run.
+
+While dynamic SQL can be tricky to develop and debug, especially
+with more complex use cases, it also affords you the utmost power and 
+flexibility  and is one of those techniques that solves certain problems.
+No other technique can.
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+/* INTRO */
+
+-- Declare a variable
+-- We'll need to give it the biggest possible varchar data 
+-- type because a text string that encompasses a SQL query 
+-- is likely to get pretty long relative to normal text strings.
+
+DECLARE @DynamicSQL VARCHAR(MAX)
+
+-- Next, we'll set the value of our dynamic variable to a text
+-- string that just happens to be a valid
+-- SQL statement that will run on our database. 
+
+
+SET @DynamicSQL = 'SELECT TOP 100 * FROM AdventureWorks2019.Production.Product'
+
+SELECT @DynamicSQL
+
+-- pass this text string in our variable into the exec function.
+-- While in stored procedures with the exec keyword, we don't
+-- include parentheses after them.
+-- However, to execute a text string as a SQL query using exec, we will 
+-- need to wrap that string inside of parentheses after our exec call.
+
+EXEC(@DynamicSQL)
+
+/* CORE QUERY */
+
+-- Dynamically set (at every query run) the aggregate function and the top N
+-- observations needed. 
+
+-- wrap everything up into a stored proceedure
+CREATE PROCEDURE dbo.DynamicTopN(@TopN INT, @AggFunc VARCHAR(50))
+
+AS
+
+BEGIN
+	DECLARE @DynamicSQL VARCHAR(MAX)
+
+	-- Turn everything before the aggregate function to text
+	SET @DynamicSQL = 
+	'	SELECT
+			*
+		FROM (
+			SELECT 
+				ProductName = B.[Name],
+				LineTotalSum = ' 
+	
+	-- Using string concatenation we re-set our dynamic SQL
+	SET @DynamicSQL = @DynamicSQL + @AggFunc
+	-- To check if everything is as expected
+	-- SELECT @DynamicSQL 
+
+	-- Append the following code fragment (before the next
+	-- aggregate function) as a string to our existing 
+	-- dynamic SQL variable.
+
+	SET @DynamicSQL = @DynamicSQL +
+	'(A.LineTotal),
+				LineTotalSumRank = DENSE_RANK() OVER(ORDER BY '
+	-- To check if everything is as expected
+	-- SELECT @DynamicSQL 
+	
+	-- Using string concatenation we re-set our dynamic SQL
+	SET @DynamicSQL = @DynamicSQL + @AggFunc
+	-- To check if everything is as expected
+	-- SELECT @DynamicSQL 
+	
+
+	SET @DynamicSQL = @DynamicSQL +
+	'(A.LineTotal) DESC)
+
+			FROM AdventureWorks2019.Sales.SalesOrderDetail A
+				JOIN AdventureWorks2019.Production.Product B
+					ON A.ProductID = B.ProductID
+
+			GROUP BY
+				B.[Name]
+			) X
+
+		WHERE LineTotalSumRank <= '
+
+	SET @DynamicSQL = @DynamicSQL + CAST(@TopN AS VARCHAR)
+	-- To check if everything is as expected
+	-- SELECT @DynamicSQL 
+
+	EXEC(@DynamicSQL)
+
+END
+
+
+EXEC dbo.DynamicTopN 15, 'MIN'
+EXEC dbo.DynamicTopN 15, 'MAX'
+EXEC dbo.DynamicTopN 15, 'AVG'
+
+
+-- ORGINAL QUERY
+SELECT *
+FROM (
+	SELECT ProductName = B.[Name],
+		   LineTotalSum = SUM(A.LineTotal),
+		   LineTotalSumRank = DENSE_RANK() OVER(ORDER BY SUM(A.LineTotal) DESC)
+
+	FROM AdventureWorks2019.Sales.SalesOrderDetail A
+		JOIN AdventureWorks2019.Production.Product B
+			ON A.ProductID = B.ProductID
+
+	GROUP BY B.[Name]) X
+
+WHERE LineTotalSumRank <= 10;
 
 <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
