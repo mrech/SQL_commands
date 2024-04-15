@@ -22,8 +22,8 @@ Streamline your code.
 - CASE: correspond to the IF/ELSE statements
     SELECT col_condition
     CASE 
-        WHEN (condition_1) THAN result_1
-        WHEN (condition_2) THAN result_2
+        WHEN (condition_1) THEN result_1
+        WHEN (condition_2) THEN result_2
         ...
         ELSE other_result
     END AS col_name
@@ -32,7 +32,7 @@ Streamline your code.
     :: CASE expression variant: evaluate the single value for equality
     SELECT
     SUM(CASE {expression|col_name}
-            WHEN n THAN 1
+            WHEN n THEN 1
             ELSE 0
         END) AS col_name
     FROM table
@@ -40,7 +40,7 @@ Streamline your code.
     --------------------------
     E.G.:
     SUM(CASE rental_rate
-            WHEN 0.99 THAN 1
+            WHEN 0.99 THEN 1
             ELSE 0
         END) AS bargains
     --------------------------
