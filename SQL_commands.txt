@@ -2315,7 +2315,7 @@ same selection.
 
 Variables allow us to break up this somewhat complicated operation 
 into discrete and descriptively named steps that make it easy for 
-someone to follow what's going on?
+someone to follow what's going on.
 
 >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 --Embedded scalar subquery example
